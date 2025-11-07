@@ -118,9 +118,9 @@ export class SimpleGateway_WEB_Analysis implements OnModuleInit, OnModuleDestroy
         const now = new Date().toISOString();
         // Lấy symbol hiện tại của client (có thể đã đổi)
         // Lấy price từ Redis
-        // const prices = await getAnalysis();
+        const prices = await getAnalysis();
         // Gửi cho client
-        client.send(JSON.stringify('abcbascb'));
+        client.send(JSON.stringify(prices));
       } catch (error) {
         console.error(`❌ Job error for ${clientId}:`, error.message);
         
