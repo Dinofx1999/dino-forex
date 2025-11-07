@@ -25,10 +25,16 @@
     "@nestjs/platform-express": "^11.1.8",
     "@nestjs/platform-ws": "^11.1.8",
     "@types/helmet": "^0.0.48",
+    "axios": "^1.13.2",
+    "bcryptjs": "^3.0.3",
     "helmet": "^8.1.0",
+    "ioredis": "^5.8.2",
     "mongodb": "^6.20.0",
+    "passport": "^0.7.0",
+    "passport-jwt": "^4.0.1",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.2"
+    "rxjs": "^7.8.2",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
