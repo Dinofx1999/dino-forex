@@ -13,6 +13,14 @@ async function bootstrap() {
   const port = process.env.PORT || 5000;
   const role = process.env.ROLE || 'WS_TRADING';
   const workerId = process.env.WORKER_ID || 'unknown';
+
+  app.enableCors({
+    origin: ['http://16.105.227.149:3000'], // FE origin
+    methods: ['GET','HEAD','PUT','PATCH','POST','DELETE','OPTIONS'],
+    allowedHeaders: ['Content-Type','Authorization','X-Requested-With'],
+    credentials: true,   // nếu dùng cookie/session
+    maxAge: 600,         // cache preflight
+  });
   
   await app.listen(port);
   // log(colors.green, `Worker`, colors.cyan, `${workerId} running as ${role} on ws://${process.env.ROOT_PATH_SERVER}:${port}`);
