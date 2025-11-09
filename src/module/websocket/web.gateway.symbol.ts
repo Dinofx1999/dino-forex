@@ -13,12 +13,13 @@ import { getPriceSymbol,
   getBrokerData, 
   getAllBrokers, 
   checkBrokerExists, 
-  findBrokerByIndex, 
-  getPrice  } from '../resdis/redis.store';
+  findBrokerByIndex,
+  getPrice ,
+getPriceSymbollAllBroker } from '../resdis/redis.store';
 
 
 
-function ParseJSON(txt: string): any {
+function ParseJSON(txt: string): any { 
   try {
     return JSON.parse(txt);
   } catch {
@@ -152,7 +153,7 @@ export class SimpleGateway_WEB implements OnModuleInit, OnModuleDestroy {
         const now = new Date().toISOString();
         // Lấy symbol hiện tại của client (có thể đã đổi)
         // Lấy price từ Redis
-        const prices = await getPrice(symbol);
+        const prices = await getPriceSymbollAllBroker(symbol);
         
         // Gửi cho client
         client.send(JSON.stringify({
