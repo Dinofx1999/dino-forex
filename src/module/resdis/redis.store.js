@@ -475,6 +475,7 @@ async function getBroker() {
           totalsymbol: brokerData.totalsymbol || '0',
           timecurent: brokerData.timecurent || 'N/A',
           timeUpdated: brokerData.timeUpdated || 'N/A',
+          typeaccount: brokerData.typeaccount || 'N/A',
           symbolCount: brokerData.OHLC_Symbols ? brokerData.OHLC_Symbols.length : 0,
         });
 
