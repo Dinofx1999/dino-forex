@@ -171,20 +171,20 @@ let index = 0;
         break;
       }
       if(index === 0 ){
-        await this.appService.resetBroker(allBrokers[index].broker_, "ALL");
+         this.appService.resetBroker(allBrokers[index].broker_, "ALL");
         console.log(`${allBrokers[index+1].broker_} next -> Starting reset loop...`);
         index+1;
       }
       const status = calculatePercentage(allBrokers_[index-1].status);
       console.log(`Current load for broker ${index} ${allBrokers_[index-1].broker_}: ${allBrokers_[index-1].status}%  =>    ${index-1}`);
       if(status > 10){
-        await this.appService.resetBroker(allBrokers_[index].broker_, "ALL");
+         this.appService.resetBroker(allBrokers_[index].broker_, "ALL");
         index+1;
       }
       if(index === allBrokers.length ){
         break;
       }
-      // await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 100));
       
     } catch (error) {
       console.error('❌ Error in reset loop:', error);
