@@ -48,4 +48,12 @@ function truncateString(str, length = 6) {
   if (!str) return '';
   return str.length > length ? str.slice(0, length) + '...' : str;
 }
-module.exports = { colors, log ,getTimeGMT7 ,formatString , truncateString};
+
+function calculatePercentage(str) { //Tính phần trăm từ chuỗi [x / y]
+  const match = str.match(/\[(\d+)\s*\/\s*(\d+)\]/);
+  if (!match) return null;
+  
+  const percentage = (parseInt(match[1]) / parseInt(match[2])) * 100;
+  return parseFloat(percentage.toFixed(2));
+}
+module.exports = { colors, log ,getTimeGMT7 ,formatString , truncateString , calculatePercentage};

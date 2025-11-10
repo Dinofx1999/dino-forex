@@ -28,7 +28,7 @@ const DATA_SET: any = {};
     if (data.broker && data.symbol && DATA_SET[data.broker]) {
       // Handle the reset event for the specific broker and symbol
       DATA_SET[data.broker].ws.send("RESET-"+data.symbol);
-      console.log(`Reset event received for Broker: ${data.broker}, Symbol: ${data.symbol}`);
+      // console.log(`Reset event received for Broker: ${data.broker}, Symbol: ${data.symbol}`);
     }else if(data.broker === "ALL"){
       // Reset all connections
       Object.keys(DATA_SET).forEach((brokerKey) => {

@@ -1,14 +1,32 @@
 /* eslint-disable */
 import { Controller, Post, Get, Put, Delete, Body, Param, HttpException, HttpStatus } from '@nestjs/common';
 import { AppService } from './app.service';
-import { API_ALL_INFO_BROKERS , API_PORT_BROKER_ENDPOINT, API_RESET , API_RESET_ALL_ONLY_SYMBOL ,API_CONFIG_SYMBOL , API_ANALYSIS_CONFIG , API_PRICE_SYMBOL } from './module/constants/API.service';
+import {  API_ALL_INFO_BROKERS , 
+          API_PORT_BROKER_ENDPOINT, 
+          API_RESET , 
+          API_RESET_ALL_ONLY_SYMBOL ,
+          API_CONFIG_SYMBOL , 
+          API_ANALYSIS_CONFIG , API_PRICE_SYMBOL ,
+          API_RESET_ALL_BROKERS } from './module/constants/API.service';
+// calculatePercentage
+
+const { log, colors , time ,getTimeGMT7, formatString ,truncateString , calculatePercentage } = require('../src/module/helper/text.format');
+
+
 import {GET,POST} from './module/constants/FetchData.service';
-import { getPrice , getPriceSymbollAllBroker } from './module/resdis/redis.store';
+import { getAllBrokersSorted, getPrice , getPriceSymbollAllBroker } from './module/resdis/redis.store';
 const { connectMongoDB, disconnectMongoDB } = require('./database/mongodb');
 const { insertSymbolConfig, getSymbolConfig, getAllSymbolConfigs } = require('./database/symbol-config.helper');
 const {Insert_UpdateAnalysisConfig} = require('./database/analysis-config.helper');
 
-const { saveBrokerData, getBrokerData, getAllBrokers, checkBrokerExists, findBrokerByIndex , clearBroker , getPriceSymbol,getPriceSymbol_ } = require('../src/module/resdis/redis.store')
+const { saveBrokerData, 
+        getBrokerData, 
+        getAllBrokers, 
+        checkBrokerExists, 
+        findBrokerByIndex , 
+        clearBroker , 
+        getPriceSymbol,
+        getPriceSymbol_ } = require('../src/module/resdis/redis.store')
 
 
 @Controller()
@@ -120,4 +138,60 @@ export class AppController {
   ): Promise<any> {
     return await getPriceSymbollAllBroker(symbol);
   }
+
+//  @Get(API_RESET_ALL_BROKERS)
+// async resetALLBroker() {
+//   const allBrokers = getAllBrokersSorted();
+// }
+@Get(API_RESET_ALL_BROKERS)
+async resetALLBroker() {
+  try {
+    // ✅ Chạy background, không block response
+    this.resetBrokersLoop();
+    
+    return {
+      success: true,
+      message: 'Reset all brokers started (running in background)'
+    };
+  } catch (error) {
+    console.error('Error:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+// ✅ Hàm chạy background với while loop
+private async resetBrokersLoop() {
+const allBrokers = await getAllBrokersSorted();
+let index = 0;
+  while (index < allBrokers.length) {
+    const allBrokers_ = await getAllBrokersSorted();
+    try {
+      if (allBrokers.length === 0) {
+        console.log('❌ No brokers found');
+        break;
+      }
+      if(index === 0 ){
+        await this.appService.resetBroker(allBrokers[index].broker_, "ALL");
+        index++;
+      }
+      const status = calculatePercentage(allBrokers_[index-1].status);
+      // console.log(`Current load for broker ${allBrokers_[index-1].broker_}: ${allBrokers_[index-1].status}%  =>    ${index-1}`);
+      if(status > 10){
+        // console.log(`⚠️ Skipping broker ${allBrokers_[index].broker_} due to high load: ${status.toFixed(2)}%`);
+        await this.appService.resetBroker(allBrokers_[index].broker_, "ALL");
+        index++;
+      }
+      if(index === allBrokers.length ){
+        break;
+      }
+      // await new Promise(resolve => setTimeout(resolve, 100));
+      
+    } catch (error) {
+      console.error('❌ Error in reset loop:', error);
+      // Chờ rồi retry
+      await new Promise(resolve => setTimeout(resolve, 10000));
+    }
+  }
+}
+
 }

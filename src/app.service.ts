@@ -14,7 +14,7 @@ export class AppService {
     return data;
   }
 
-  async resetBroker(broker:string , symbol:string){
+   async resetBroker(broker:string , symbol:string){
     //logic to reset broker info
     const data = await getPortBroker(broker);
     const Channel = `${process.env.CHANNEL_RESET}-${data.port}`;

@@ -73,7 +73,7 @@ export class AuthController {
       };
       
       const accessToken = this.jwtService.sign(payload, {
-        expiresIn: '15m'
+        expiresIn: '7d'
       });
       
       const refreshToken = this.jwtService.sign(payload, {

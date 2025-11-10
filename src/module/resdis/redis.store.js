@@ -12,7 +12,7 @@ const { log, colors } = require('../helper/text.format');
 //Update broker data =>  await updateBrokerData('broker_key', { status: 'False', broker: 'XYZ' });
 async function updateBrokerStatus(broker, newStatus) {
   try {
-    console.log(`Updating broker: ${broker}, newStatus: ${newStatus}`);
+    // console.log(`Updating broker: ${broker}, newStatus: ${newStatus}`);
     const key = `Broker:${broker}`; // ← Key phải match với getPortBroker
     
     const raw = await redis.get(key);
@@ -78,7 +78,6 @@ async function getBrokerData(broker) {
  * Lấy port của broker
  */
 async function getPortBroker(broker) {
-  console.log('Getting port for broker:', broker);
   const key = `Broker:${broker}`;
   const raw = await redis.get(key);
   if (!raw) return null;
@@ -477,7 +476,7 @@ async function getBroker() {
     const keys = await redis.keys('Broker:*');
     
     if (keys.length === 0) {
-      log(colors.yellow, `⚠️ Redis`, colors.cyan, `Không có key Broker nào trong Redis `);
+      // log(colors.yellow, `⚠️ Redis`, colors.cyan, `Không có key Broker nào trong Redis `);
       return results;
     }
 
