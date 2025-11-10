@@ -175,7 +175,7 @@ let index = 0;
         console.log(`${allBrokers[index+1].broker_} next -> Starting reset loop...`);
         index+1;
       }
-      const status = calculatePercentage(allBrokers_[index-1].status);
+      const status = calculatePercentage(allBrokers_[index-1]?.status);
       console.log(`Current load for broker ${index} ${allBrokers_[index-1].broker_}: ${allBrokers_[index-1].status}%  =>    ${index-1}`);
       if(status > 10){
          this.appService.resetBroker(allBrokers_[index].broker_, "ALL");
@@ -189,7 +189,7 @@ let index = 0;
     } catch (error) {
       console.error('❌ Error in reset loop:', error);
       // Chờ rồi retry
-      await new Promise(resolve => setTimeout(resolve, 10000));
+      // await new Promise(resolve => setTimeout(resolve, 10000));
     }
   }
 }
