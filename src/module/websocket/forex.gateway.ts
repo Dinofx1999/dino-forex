@@ -92,12 +92,11 @@ log(colors.green,
       //  await clearBroker_Reset(removeSpaces(TYPE.data.broker, "-"));
        
        const Info = await getPriceSymbol(TYPE.data.symbol);
+       await updateBrokerStatus(`${formatString(TYPE.data.broker)}`,`${TYPE.data.symbol}-[ ${TYPE.data.Payload.mess} ]`);
        if(Info){
              Info.Index = TYPE.data.index;
              Info.Type = TYPE.type;
-             
              log(colors.green,`${process.env.TYPE_RESET_DATA}` ,colors.reset ,`Broker ${TYPE.data.broker} -> Symbol: ${TYPE.data.symbol} - [ ${TYPE.data.Payload.mess} ] <=> Broker Check: ${Info.Broker}`);
-             await updateBrokerStatus(`${formatString(TYPE.data.broker)}`,`${TYPE.data.symbol}-[ ${TYPE.data.Payload.mess} ]`);
              client.send(JSON.stringify(Info));
        }else{
              const mess = {
