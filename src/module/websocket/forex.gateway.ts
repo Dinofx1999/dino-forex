@@ -97,7 +97,7 @@ log(colors.green,
              Info.Type = TYPE.type;
              
              log(colors.green,`${process.env.TYPE_RESET_DATA}` ,colors.reset ,`Broker ${TYPE.data.broker} -> Symbol: ${TYPE.data.symbol} - [ ${TYPE.data.Payload.mess} ] <=> Broker Check: ${Info.Broker}`);
-             await updateBrokerStatus(`${formatString(TYPE.data.broker)}`, { status: `${TYPE.data.symbol} - [ ${TYPE.data.Payload.mess} ]`});
+             await updateBrokerStatus(`${formatString(TYPE.data.broker)}`,`${TYPE.data.symbol}-[ ${TYPE.data.Payload.mess} ]`);
              client.send(JSON.stringify(Info));
        }else{
              const mess = {
