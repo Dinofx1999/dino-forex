@@ -2,7 +2,7 @@
 import { WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Public } from '../../../src/auth/decorators/public.decorator';
 import { Server, WebSocket } from 'ws';
-const { log, colors , time ,getTimeGMT7 } = require('../helper/text.format');
+const { log, colors , time ,getTimeGMT7, formatString } = require('../helper/text.format');
 const {MESS_SERVER } = require('../constants/mess.server');
 const {publish, subscribe} = require('../resdis/redis.pub_sub');
 
@@ -97,7 +97,7 @@ log(colors.green,
              Info.Type = TYPE.type;
              
              log(colors.green,`${process.env.TYPE_RESET_DATA}` ,colors.reset ,`Broker ${TYPE.data.broker} -> Symbol: ${TYPE.data.symbol} - [ ${TYPE.data.Payload.mess} ] <=> Broker Check: ${Info.Broker}`);
-             await updateBrokerData('Broker', { status: `${TYPE.data.symbol} - [ ${TYPE.data.Payload.mess} ]`, broker: 'XYZ' });
+             await updateBrokerData('Broker', { status: `${TYPE.data.symbol} - [ ${TYPE.data.Payload.mess} ]`, broker: formatString(`${TYPE.data.broker}`) });
              client.send(JSON.stringify(Info));
        }else{
              const mess = {

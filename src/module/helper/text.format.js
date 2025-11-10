@@ -39,4 +39,8 @@ function getTimeGMT7(format = 'datetime') {
       return `${year}.${month}.${day} ${hour}:${minute}:${second}`;
   }
 }
-module.exports = { colors, log ,getTimeGMT7};
+
+function formatString(str) {
+  return str.trim().replace(/\s+/g, '-');
+}
+module.exports = { colors, log ,getTimeGMT7 ,formatString};
