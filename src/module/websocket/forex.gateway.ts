@@ -92,7 +92,7 @@ log(colors.green,
       //  await clearBroker_Reset(removeSpaces(TYPE.data.broker, "-"));
        
        const Info = await getPriceSymbol(TYPE.data.symbol);
-       await updateBrokerStatus(`${formatString(TYPE.data.broker)}`,`[${TYPE.data.Payload.mess}] - ${truncateString(TYPE.data.symbol,6)}`);
+       await updateBrokerStatus(`${formatString(TYPE.data.broker)}`,`[${TYPE.data.Payload.mess}] - ${truncateString(TYPE.data.symbol)}`);
        if(Info){
              Info.Index = TYPE.data.index;
              Info.Type = TYPE.type;

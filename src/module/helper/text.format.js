@@ -44,7 +44,7 @@ function formatString(str) {
   return str.trim().replace(/\s+/g, '-');
 }
 
-function truncateString(str, length = 4) {
+function truncateString(str, length = 6) {
   if (!str) return '';
   return str.length > length ? str.slice(0, length) + '...' : str;
 }
