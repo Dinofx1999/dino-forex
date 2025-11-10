@@ -10,7 +10,7 @@ const {removeSpaces} = require('../jobs/func.helper');
 // removeSpaces
 
 
-const { saveBrokerData, getBrokerData, getAllBrokers, checkBrokerExists, findBrokerByIndex , clearBroker , getPriceSymbol,clearBroker_Reset } = require('../resdis/redis.store')
+const { saveBrokerData, updateBrokerData, getAllBrokers, checkBrokerExists, findBrokerByIndex , clearBroker , getPriceSymbol,clearBroker_Reset } = require('../resdis/redis.store')
 
 function ParseJSON(txt: string): any {
   try {
@@ -89,13 +89,15 @@ log(colors.green,
     }else if (TYPE.type === process.env.TYPE_SET_DATA) {
       await saveBrokerData(TYPE.data.broker_,TYPE.data);
     }else if (TYPE.type === process.env.TYPE_RESET_DATA) {
-       await clearBroker_Reset(removeSpaces(TYPE.data.broker, "-"));
+      //  await clearBroker_Reset(removeSpaces(TYPE.data.broker, "-"));
+       
        const Info = await getPriceSymbol(TYPE.data.symbol);
        if(Info){
              Info.Index = TYPE.data.index;
              Info.Type = TYPE.type;
              
              log(colors.green,`${process.env.TYPE_RESET_DATA}` ,colors.reset ,`Broker ${TYPE.data.broker} -> Symbol: ${TYPE.data.symbol} - [ ${TYPE.data.Payload.mess} ] <=> Broker Check: ${Info.Broker}`);
+             await updateBrokerData('Broker', { status: `${TYPE.data.symbol} - [ ${TYPE.data.Payload.mess} ]`, broker: 'XYZ' });
              client.send(JSON.stringify(Info));
        }else{
              const mess = {

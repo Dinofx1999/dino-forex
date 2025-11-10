@@ -9,6 +9,29 @@ const redis = new Redis({
 const { log, colors } = require('../helper/text.format');
 
 // ============= BROKER DATA MANAGEMENT =============
+//Update broker data =>  await updateBrokerData('broker_key', { status: 'False', broker: 'XYZ' });
+async function updateBrokerData(key, updates) {
+  try {
+    const data = await redis.get(key);
+    if (!data) throw new Error(`Key "${key}" không tồn tại`);
+    
+    const jsonData = JSON.parse(data);
+    
+    // Merge dữ liệu mới
+    Object.assign(jsonData, updates);
+    
+    // Cập nhật thời gian
+    jsonData.timeUpdated = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    
+    await redis.set(key, JSON.stringify(jsonData));
+    console.log('✓ Đã update thành công');
+    return jsonData;
+    
+  } catch (error) {
+    console.error('Lỗi:', error.message);
+    throw error;
+  }
+}
 
 /**
  * Lưu data của broker vào Redis
@@ -727,6 +750,7 @@ module.exports = {
   clearBrokerData,
   clearBroker,
   clearBroker_Reset,
+  updateBrokerData,
   
   // Price Queries
   getPriceSymbol,      // Lấy price từ broker đầu tiên (index nhỏ nhất)
