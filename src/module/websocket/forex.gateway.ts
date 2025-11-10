@@ -2,7 +2,7 @@
 import { WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Public } from '../../../src/auth/decorators/public.decorator';
 import { Server, WebSocket } from 'ws';
-const { log, colors , time ,getTimeGMT7, formatString } = require('../helper/text.format');
+const { log, colors , time ,getTimeGMT7, formatString ,truncateString } = require('../helper/text.format');
 const {MESS_SERVER } = require('../constants/mess.server');
 const {publish, subscribe} = require('../resdis/redis.pub_sub');
 
@@ -10,7 +10,7 @@ const {removeSpaces} = require('../jobs/func.helper');
 // removeSpaces
 
 
-const { saveBrokerData, updateBrokerStatus, truncateString, checkBrokerExists, findBrokerByIndex , clearBroker , getPriceSymbol,clearBroker_Reset } = require('../resdis/redis.store')
+const { saveBrokerData, updateBrokerStatus, checkBrokerExists, findBrokerByIndex , clearBroker , getPriceSymbol,clearBroker_Reset } = require('../resdis/redis.store')
 
 function ParseJSON(txt: string): any {
   try {
