@@ -184,7 +184,7 @@ let index = 0;
       if(index === allBrokers.length ){
         break;
       }
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 200));
       
     } catch (error) {
       console.error('❌ Error in reset loop:', error);
