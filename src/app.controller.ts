@@ -172,14 +172,14 @@ let index = 0;
       }
       if(index === 0 ){
         await this.appService.resetBroker(allBrokers[index].broker_, "ALL");
-        index++;
+        index+1;
       }
       const status = calculatePercentage(allBrokers_[index-1].status);
       console.log(`Current load for broker ${allBrokers_[index-1].broker_}: ${allBrokers_[index-1].status}%  =>    ${index-1}`);
       if(status > 10){
         // console.log(`⚠️ Skipping broker ${allBrokers_[index].broker_} due to high load: ${status.toFixed(2)}%`);
         await this.appService.resetBroker(allBrokers_[index].broker_, "ALL");
-        index++;
+        index+1;
       }
       if(index === allBrokers.length ){
         break;
