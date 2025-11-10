@@ -10,25 +10,30 @@ const { log, colors } = require('../helper/text.format');
 
 // ============= BROKER DATA MANAGEMENT =============
 //Update broker data =>  await updateBrokerData('broker_key', { status: 'False', broker: 'XYZ' });
-async function updateBrokerData(key, updates) {
+async function updateBrokerStatus(broker, newStatus) {
   try {
-    const data = await redis.get(key);
-    if (!data) throw new Error(`Key "${key}" không tồn tại`);
+    console.log(`Updating broker: ${broker}, newStatus: ${newStatus}`);
+    const key = `Broker:${broker}`; // ← Key phải match với getPortBroker
     
-    const jsonData = JSON.parse(data);
+    const raw = await redis.get(key);
+    if (!raw) {
+      throw new Error(`Broker "${broker}" không tồn tại`);
+    }
     
-    // Merge dữ liệu mới
-    Object.assign(jsonData, updates);
+    const data = JSON.parse(raw);
     
-    // Cập nhật thời gian
-    jsonData.timeUpdated = new Date().toISOString().slice(0, 19).replace('T', ' ');
+    // Update status
+    data.status = newStatus; // "True" hoặc "False"
+    data.timeUpdated = new Date().toISOString().slice(0, 19).replace('T', ' ');
     
-    await redis.set(key, JSON.stringify(jsonData));
-    console.log('✓ Đã update thành công');
-    return jsonData;
+    // Lưu lại
+    await redis.set(key, JSON.stringify(data));
+    
+    console.log(`✓ Đã update ${broker} status thành: ${newStatus}`);
+    return data;
     
   } catch (error) {
-    console.error('Lỗi:', error.message);
+    console.error('Lỗi update status:', error.message);
     throw error;
   }
 }
@@ -750,7 +755,7 @@ module.exports = {
   clearBrokerData,
   clearBroker,
   clearBroker_Reset,
-  updateBrokerData,
+  updateBrokerStatus,
   
   // Price Queries
   getPriceSymbol,      // Lấy price từ broker đầu tiên (index nhỏ nhất)
