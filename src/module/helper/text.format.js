@@ -43,4 +43,9 @@ function getTimeGMT7(format = 'datetime') {
 function formatString(str) {
   return str.trim().replace(/\s+/g, '-');
 }
-module.exports = { colors, log ,getTimeGMT7 ,formatString};
+
+function truncateString(str, length = 4) {
+  if (!str) return '';
+  return str.length > length ? str.slice(0, length) + '...' : str;
+}
+module.exports = { colors, log ,getTimeGMT7 ,formatString , truncateString};

@@ -10,7 +10,7 @@ const {removeSpaces} = require('../jobs/func.helper');
 // removeSpaces
 
 
-const { saveBrokerData, updateBrokerStatus, getAllBrokers, checkBrokerExists, findBrokerByIndex , clearBroker , getPriceSymbol,clearBroker_Reset } = require('../resdis/redis.store')
+const { saveBrokerData, updateBrokerStatus, truncateString, checkBrokerExists, findBrokerByIndex , clearBroker , getPriceSymbol,clearBroker_Reset } = require('../resdis/redis.store')
 
 function ParseJSON(txt: string): any {
   try {
@@ -92,7 +92,7 @@ log(colors.green,
       //  await clearBroker_Reset(removeSpaces(TYPE.data.broker, "-"));
        
        const Info = await getPriceSymbol(TYPE.data.symbol);
-       await updateBrokerStatus(`${formatString(TYPE.data.broker)}`,`${TYPE.data.symbol}-[ ${TYPE.data.Payload.mess} ]`);
+       await updateBrokerStatus(`${formatString(TYPE.data.broker)}`,`[${TYPE.data.Payload.mess}] - ${truncateString(TYPE.data.symbol,6)}`);
        if(Info){
              Info.Index = TYPE.data.index;
              Info.Type = TYPE.type;
