@@ -16,11 +16,8 @@ async function updateBrokerStatus(broker, newStatus) {
     const key = `Broker:${broker}`; // ← Key phải match với getPortBroker
     
     const raw = await redis.get(key);
-    if (!raw) {
-      throw new Error(`Broker "${broker}" không tồn tại`);
-    }
-    
-    const data = JSON.parse(raw);
+    if (raw) {
+      const data = JSON.parse(raw);
     
     // Update status
     data.status = newStatus; // "True" hoặc "False"
@@ -29,8 +26,10 @@ async function updateBrokerStatus(broker, newStatus) {
     // Lưu lại
     await redis.set(key, JSON.stringify(data));
     
-    console.log(`✓ Đã update ${broker} status thành: ${newStatus}`);
+    // console.log(`✓ Đã update ${broker} status thành: ${newStatus}`);
     return data;
+    }
+    
     
   } catch (error) {
     console.error('Lỗi update status:', error.message);
