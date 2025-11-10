@@ -175,7 +175,7 @@ let index = 0;
         index++;
       }
       const status = calculatePercentage(allBrokers_[index-1].status);
-      // console.log(`Current load for broker ${allBrokers_[index-1].broker_}: ${allBrokers_[index-1].status}%  =>    ${index-1}`);
+      console.log(`Current load for broker ${allBrokers_[index-1].broker_}: ${allBrokers_[index-1].status}%  =>    ${index-1}`);
       if(status > 10){
         // console.log(`⚠️ Skipping broker ${allBrokers_[index].broker_} due to high load: ${status.toFixed(2)}%`);
         await this.appService.resetBroker(allBrokers_[index].broker_, "ALL");
