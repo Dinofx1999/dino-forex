@@ -414,7 +414,7 @@ async function getPriceSymbollAllBroker(symbol) {
       try {
         const brokerData = JSON.parse(data);
         
-        if (brokerData.OHLC_Symbols && Array.isArray(brokerData.OHLC_Symbols)&&brokerData === "True") {
+        if (brokerData.OHLC_Symbols && Array.isArray(brokerData.OHLC_Symbols)&&brokerData.status === "True") {
           const symbolData = brokerData.OHLC_Symbols.find(
               (s) => 
                 s.symbol && 
