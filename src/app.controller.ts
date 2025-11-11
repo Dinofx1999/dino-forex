@@ -148,6 +148,7 @@ async resetALLBroker() {
   try {
     // ✅ Chạy background, không block response
     this.resetBrokersLoop();
+    console.log('✅ Reset all brokers process started in background');
     
     return {
       success: true,
@@ -161,8 +162,15 @@ async resetALLBroker() {
 
 // ✅ Hàm chạy background với while loop
 private async resetBrokersLoop() {
+  console.log('Total:ádád ');
 const allBrokers = await getAllBrokersSorted();
-let index = 0;
+
+if(allBrokers.length === 0){
+  console.log('❌ No brokers found');
+  return;
+}
+
+let index = 1;
   while (index < allBrokers.length) {
     const allBrokers_ = await getAllBrokersSorted();
     try {
@@ -170,7 +178,7 @@ let index = 0;
         console.log('❌ No brokers found');
         break;
       }
-      if(index === 0 ){
+      if(index === 1){
          this.appService.resetBroker(allBrokers[index].broker_, "ALL");
         console.log(`${allBrokers[index+1].broker_} next -> Starting reset loop...`);
         index+1;
@@ -181,7 +189,7 @@ let index = 0;
       //    this.appService.resetBroker(allBrokers_[index].broker_, "ALL");
       //   index+1;
       // }
-      if(index === allBrokers.length ){
+      if(index === allBrokers.length -1 ){
         break;
       }
       await new Promise(resolve => setTimeout(resolve, 200));
