@@ -450,6 +450,7 @@ async function getPriceSymbollAllBroker(symbol) {
               symbol: symbolData.symbol,
               symbol_raw: symbolData.symbol_raw,
               broker: brokerData.broker || 'Unknown',
+              broker_: brokerData.broker_ || 'Unknown',
               index: brokerData.index || 'N/A',
               typeaccount: brokerData.typeaccount || 'N/A',
               timeCrr: brokerData.timecurent || 'N/A',
