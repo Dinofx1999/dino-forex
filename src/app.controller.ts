@@ -147,8 +147,8 @@ export class AppController {
 async resetALLBroker() {
   try {
     // ✅ Chạy background, không block response
-    this.resetBrokersLoop();
-    console.log('✅ Reset all brokers process started in background');
+
+     await this.resetBrokersLoop();
     
     return {
       success: true,
@@ -161,38 +161,38 @@ async resetALLBroker() {
 }
 
 // ✅ Hàm chạy background với while loop
-private async resetBrokersLoop() {
-  console.log('Total:ádád ');
+public async resetBrokersLoop() {
 const allBrokers = await getAllBrokersSorted();
-
-if(allBrokers.length === 0){
-  console.log('❌ No brokers found');
+if(allBrokers.length <= 1){
+  console.log('❌ No brokers to reset');
   return;
 }
-
+console.log(`🔄 Starting reset for ${allBrokers.length} brokers...`);
 let index = 1;
-  while (index < allBrokers.length) {
+  while (index < allBrokers.length && allBrokers.length > 1) {
     const allBrokers_ = await getAllBrokersSorted();
     try {
       if (allBrokers.length === 0) {
         console.log('❌ No brokers found');
         break;
       }
-      if(index === 1){
-         this.appService.resetBroker(allBrokers[index].broker_, "ALL");
-        console.log(`${allBrokers[index+1].broker_} next -> Starting reset loop...`);
-        index+1;
+      if(index === 1 ){
+        index++;
+         console.log(`✅ Continue Reset: ${allBrokers[index-1].broker_}`);
+         this.appService.resetBroker(allBrokers[index-1].broker_, "ALL");
       }
-      // const status = calculatePercentage(allBrokers_[index-1].status);
-      console.log(`Current load for broker ${index} ${allBrokers_[index-1].broker_}: ${allBrokers_[index-1].status}%  =>    ${index-1}`);
-      // if(status > 10){
-      //    this.appService.resetBroker(allBrokers_[index].broker_, "ALL");
-      //   index+1;
-      // }
-      if(index === allBrokers.length -1 ){
+      const status = String(allBrokers_[index-1].status);
+      const Per_status = Number(Number(calculatePercentage(status)).toFixed(0));
+      // console.log(`🔄 Resetting broker:${index-1} : ${status} - ${Per_status}`);
+      if(Per_status >= 30){
+        index++;
+         this.appService.resetBroker(allBrokers[index-1].broker_, "ALL");
+        console.log(`✅ Continue Reset: ${allBrokers[index-1].broker_}`);
+      }
+      if(index === allBrokers.length){
+        console.log('✅ Completed resetting all brokers');
         break;
       }
-      await new Promise(resolve => setTimeout(resolve, 200));
       
     } catch (error) {
       console.error('❌ Error in reset loop:', error);

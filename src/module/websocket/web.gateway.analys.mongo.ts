@@ -7,7 +7,7 @@ import * as url from 'url';
 const { log, colors } = require('../helper/text.format');
 const { MESS_SERVER } = require('../constants/mess.server');
 const { publish, subscribe } = require('../resdis/redis.pub_sub');
-import { getAnalysis ,getAllSymbolsFromRedis } from '../resdis/redis.store';
+import { getAnalysis ,getAllSymbolsFromRedis ,getBrokerResetting } from '../resdis/redis.store';
 import { JwtAuthGuard } from '../../../src/auth/jwt-auth.guard';
 
 function ParseJSON(txt: string): any {
@@ -123,6 +123,7 @@ export class SimpleGateway_WEB_Analysis implements OnModuleInit, OnModuleDestroy
         // Gắn timestamp
         prices['timestamp'] = now;
         prices['symbols'] = symbols;  
+        prices['resetting'] = await getBrokerResetting();
         // Gửi cho client
         client.send(JSON.stringify(prices));
       } catch (error) {
