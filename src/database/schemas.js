@@ -142,6 +142,12 @@ const schemas = {
             maxLength: 50,
             description: 'Username - required, unique'
           },
+          fullname: {
+            bsonType: 'string',
+            minLength: 2,
+            maxLength: 100,
+            description: 'Full name - required, unique'
+          },
           email: {
             bsonType: 'string',
             pattern: '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$',

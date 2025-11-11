@@ -16,6 +16,7 @@ export class AppService {
 
    async resetBroker(broker:string , symbol:string){
     //logic to reset broker info
+    console.log(`🔄 Initiating reset for Broker: ${broker}, Symbol: ${symbol}  => Redis`);
     const data = await getPortBroker(broker);
     const Channel = `${process.env.CHANNEL_RESET}-${data.port}`;
     const isPublished = await publish(Channel, { broker: data.broker, symbol });

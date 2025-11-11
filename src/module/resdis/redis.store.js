@@ -137,6 +137,28 @@ async function getAllBrokersSorted() {
     .sort((a, b) => Number(a.index) - Number(b.index));
 }
 
+
+async function getBrokerResetting() {
+  const keys = await redis.keys('Broker:*');
+  if (!keys.length) return [];
+  
+  const pipeline = redis.pipeline();
+  keys.forEach(k => pipeline.get(k));
+  const results = await pipeline.exec();
+  
+  return results
+    .map(([, raw]) => {
+      try {
+        return JSON.parse(raw);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean)
+    // ✅ Chỉ lấy status !== "True"
+    .filter(broker => broker.status !== "True")
+    .sort((a, b) => Number(a.index) - Number(b.index));
+}
 /**
  * Tìm broker theo index
  */
@@ -767,6 +789,7 @@ module.exports = {
   getAllSymbolsFromRedis,
   getPriceSymbollAllBroker,
   getAnalysis,
+  getBrokerResetting,
   // Redis client
   redis,
 };
