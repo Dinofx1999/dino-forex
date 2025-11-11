@@ -96,7 +96,7 @@ log(colors.green,
        if(Info){
              Info.Index = TYPE.data.index;
              Info.Type = TYPE.type;
-            //  log(colors.green,`${process.env.TYPE_RESET_DATA}` ,colors.reset ,`Broker ${TYPE.data.broker} -> Symbol: ${TYPE.data.symbol} - [ ${TYPE.data.Payload.mess} ] <=> Broker Check: ${Info.Broker}`);
+             log(colors.green,`${process.env.TYPE_RESET_DATA}` ,colors.reset ,`Broker ${TYPE.data.broker} -> Symbol: ${TYPE.data.symbol} - [ ${TYPE.data.Payload.mess} ] <=> Broker Check: ${Info.Broker}`);
              client.send(JSON.stringify(Info));
        }else{
              const mess = {
@@ -108,7 +108,7 @@ log(colors.green,
                 Index: TYPE.data.index,
                 Type : TYPE.type
              }
-            //  log(colors.yellow,`${process.env.TYPE_RESET_DATA}` ,colors.reset ,`Broker ${TYPE.data.broker} -> Symbol: ${TYPE.data.symbol} - [ ${TYPE.data.Payload.mess} ] <=> Broker Check: ${mess.Broker}`);
+             log(colors.yellow,`${process.env.TYPE_RESET_DATA}` ,colors.reset ,`Broker ${TYPE.data.broker} -> Symbol: ${TYPE.data.symbol} - [ ${TYPE.data.Payload.mess} ] <=> Broker Check: ${mess.Broker}`);
              client.send(JSON.stringify(mess));
        }
     }
