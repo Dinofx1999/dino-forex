@@ -26,7 +26,7 @@ const {Insert_UpdateAnalysisConfig} = require('../../database/analysis-config.he
         //Check BUY
         let Point_BUY = parseFloat(SPREAD_MIN_CURRENT * SPREAD_X_CURRENT) * parseFloat(Digit(parseInt(CHECK.digit)));
         let Price_BUY_CURRENT = parseFloat(CURRENT.ask_mdf + Point_BUY);
-        let Price_BUY_CHECK = parseFloat(CHECK.bid);
+        let Price_BUY_CHECK = parseFloat(CHECK.bid_mdf);
 
         
         // console.log(CURRENT);
@@ -53,7 +53,7 @@ const {Insert_UpdateAnalysisConfig} = require('../../database/analysis-config.he
         //Check SELL
         let Point_SELL = parseFloat((parseFloat(SPREAD_MIN_CURRENT) * parseFloat(SPREAD_X_CURRENT))*parseFloat(Digit(parseInt(CHECK.digit))));
         let Price_SELL_CURRENT = parseFloat(CURRENT.bid_mdf - Point_SELL);
-        let Price_SELL_CHECK = parseFloat(CHECK.bid) + parseFloat(SPREAD_MIN_CURRENT)*parseFloat(Digit(parseInt(CHECK.digit)));
+        let Price_SELL_CHECK = parseFloat(CHECK.bid_mdf) + parseFloat(SPREAD_MIN_CURRENT)*parseFloat(Digit(parseInt(CHECK.digit)));
         if(parseFloat(Price_SELL_CURRENT) > parseFloat(Price_SELL_CHECK)){
             const timeStart = getTimeGMT7();
             const Payload = {
