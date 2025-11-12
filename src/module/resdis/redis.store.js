@@ -462,6 +462,7 @@ async function getPriceSymbollAllBroker(symbol) {
               digit: symbolData.digit,
               longcandle: symbolData.longcandle,
               timetrade: symbolData.timetrade,
+              timedelay: symbolData.timedelay,
             });
           }
         }
