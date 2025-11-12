@@ -21,7 +21,7 @@ export class AuthController {
   @Post('register')
   async register(@Body() registerDto: any) {
     try {
-      log(colors.blue, '🔄 Registering user:', registerDto.username);
+      log(colors.blue, '🔄 Registering user:',colors.reset, registerDto.username);
       
       const user = await createUser({
         username: registerDto.username,
@@ -31,7 +31,7 @@ export class AuthController {
         role: registerDto.role || 'user'
       });
       
-      log(colors.green, `✅ User registered: ${user.username}`);
+      log(colors.green, `✅ User registered: ${user.username}`, colors.reset , "");
       
       return {
         success: true,
@@ -39,7 +39,8 @@ export class AuthController {
         user: {
           username: user.username,
           email: user.email,
-          role: user.role
+          role: user.role,
+          fullname: user.fullname
         }
       };
       

@@ -50,6 +50,7 @@ async function createUser(userData) {
     const user = {
       username: userData.username,
       email: userData.email,
+      fullname: userData.fullname || '',
       password: hashedPassword,
       role: userData.role || 'user',
       isActive: true,
