@@ -25,6 +25,7 @@ export class AuthController {
       
       const user = await createUser({
         username: registerDto.username,
+        fullname: registerDto.fullname,
         email: registerDto.email,
         password: registerDto.password,
         role: registerDto.role || 'user'
