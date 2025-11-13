@@ -41,15 +41,22 @@ const interval = Number(process.env.CRON_INTERVAL_ANALYZE || 10000);
   console.log(`[JOB ${process.pid}] Save Analysis ready.`);
 }
 
+
+export async function start_Get_ConfigSymbol() {
+  setInterval(() => {
+  const m = process.memoryUsage();
+  console.log("HeapUsed:", (m.heapUsed/1024/1024).toFixed(2),"MB");
+}, 5000);
+}
 // Auto-run khi process là ROLE=JOB
 if (process.env.ROLE === 'JOB_SAVE_ANALYSIS') {
   startJob().catch((e) => {
     console.error(`[JOB ${process.pid}] fatal:`, e);
     process.exit(1);
   });
-//   start_Get_ConfigSymbol().catch((e) => {
-//     console.error(`[JOB ${process.pid}] fatal:`, e);
-//     process.exit(1);
-//   });
+  // start_Get_ConfigSymbol().catch((e) => {
+  //   console.error(`[JOB ${process.pid}] fatal:`, e);
+  //   process.exit(1);
+  // });
 }
 7
