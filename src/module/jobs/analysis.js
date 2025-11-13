@@ -10,7 +10,7 @@ const {Insert_UpdateAnalysisConfig} = require('../../database/analysis-config.he
     for(let i = 1; i < total_length; i++){
         const CHECK = data[0];
         const CURRENT = data[i];
-        let SPREAD_MIN_CURRENT = Number(CURRENT.spread);
+        let SPREAD_MIN_CURRENT = Number(CURRENT.spread_mdf);
         let SPREAD_X_CURRENT = Number(process.env.SPREAD_X_CURRENT) || 0.1;
         let SESSION = getForexSession(getTimeGMT7());
         if(symbolConfig_data){
