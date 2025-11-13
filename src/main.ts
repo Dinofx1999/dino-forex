@@ -12,14 +12,12 @@ async function bootstrap() {
   const port = process.env.PORT || 5000;
   const workerId = process.env.WORKER_ID || 'unknown';
 
-  // Chọn module theo ROLE
   const isHttpRole = role === 'HTTP';
+
   const app = await NestFactory.create(isHttpRole ? HttpModule : WsModule);
 
-  // CORS
   app.use(cors());
 
-  // Chỉ bật WebSocket adapter cho các ROLE WS_*
   const isWsRole =
     role === 'WS_TRADING' ||
     role === 'WS_SYMBOL_BROKERS' ||
@@ -40,8 +38,6 @@ async function bootstrap() {
     `Role: ${role}`,
   );
 
-  // === LOG URL THEO ROLE ===
-
   if (isHttpRole) {
     log(
       colors.blue,
@@ -52,52 +48,6 @@ async function bootstrap() {
     return;
   }
 
-  if (role === 'WS_SYMBOL_BROKERS') {
-    log(
-      colors.blue,
-      `WebSocket`,
-      colors.cyan,
-      `ws://${process.env.ROOT_PATH_SERVER}:${port}${
-        process.env.WS_SYMBOL_BROKERS_PATH || '/undefined'
-      }/?symbol={symbol_name}`,
-    );
-  } else if (role === 'WS_TRADING') {
-    log(
-      colors.blue,
-      `WebSocket`,
-      colors.cyan,
-      `ws://${process.env.ROOT_PATH_SERVER}:${port}${
-        process.env.WS_PATH || '/undefined'
-      }`,
-    );
-  } else if (role === 'WS_WEB_BROKERS_INFO') {
-    log(
-      colors.blue,
-      `WebSocket`,
-      colors.cyan,
-      `ws://${process.env.ROOT_PATH_SERVER}:${port}${
-        process.env.WS_WEB_BROKER_INFO_PATH || '/undefined'
-      }`,
-    );
-  } else if (role === 'WS_WEB_SYMBOLS_INFO') {
-    log(
-      colors.blue,
-      `WebSocket`,
-      colors.cyan,
-      `ws://${process.env.ROOT_PATH_SERVER}:${port}${
-        process.env.WS_WEB_SYMBOLS_INFO_PATH || '/undefined'
-      }?broker={broker_name}`,
-    );
-  } else if (role === 'WS_WEB_ANALYSIS') {
-    log(
-      colors.blue,
-      `WebSocket`,
-      colors.cyan,
-      `ws://${process.env.ROOT_PATH_SERVER}:${port}${
-        process.env.WS_WEB_ANALYSIS_PATH || '/undefined'
-      }`,
-    );
-  }
+  // Logs WS URL như bạn đang làm...
 }
-
 bootstrap();

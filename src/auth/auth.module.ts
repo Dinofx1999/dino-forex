@@ -22,3 +22,15 @@ import { RolesGuard } from './roles.guard';
   exports: [JwtAuthGuard, RolesGuard, JwtModule],
 })
 export class AuthModule {}
+
+// import { Module } from '@nestjs/common';
+// import { AuthService } from './auth.service';
+// import { JwtStrategy } from './jwt.strategy';
+// import { JwtModule } from '@nestjs/jwt';
+
+// @Module({
+//   imports: [JwtModule.register({})],
+//   providers: [AuthService, JwtStrategy],
+//   exports: [AuthService, JwtStrategy, JwtModule],
+// })
+// export class AuthCoreModule {}

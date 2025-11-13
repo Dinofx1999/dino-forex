@@ -45,7 +45,7 @@ export class AuthController {
       };
       
     } catch (error: any) {
-      log(colors.red, '❌ Register error:', error.message);
+      log(colors.red, '❌ Register',colors.reset, error.message);
       throw error;
     }
   }
@@ -55,7 +55,8 @@ export class AuthController {
   @Post('login')
   async login(@Body() loginDto: any) {
     try {
-      log(colors.blue, '🔄 Login attempt:', loginDto.username);
+      log(colors.blue, '🔄 Login ',colors.reset,`attempt ${loginDto.username}`);
+
       
       // Validate credentials
       const user = await validateUser(loginDto.username, loginDto.password);
@@ -86,7 +87,7 @@ export class AuthController {
       await updateRefreshToken(user._id.toString(), refreshToken);
       await updateLastLogin(user._id.toString());
       
-      log(colors.green, `✅ Login successful: ${user.username}`);
+      log(colors.green, `✅ Login ` , colors.reset ,`successful: ${user.username}`);
       
       return {
         success: true,
@@ -130,7 +131,8 @@ export class AuthController {
         expiresIn: '15m'
       });
       
-      log(colors.green, `✅ Token refreshed for: ${payload.username}`);
+
+      log(colors.green, `✅ Token ` , colors.reset ,`refreshed for: ${payload.username}`);
       
       return {
         success: true,

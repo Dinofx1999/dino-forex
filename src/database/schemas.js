@@ -211,10 +211,10 @@ async function setupSchemas() {
             collMod: collectionName,
             ...schema
           });
-          log(colors.blue, `✅ Updated schema: ${collectionName}`);
+          log(colors.blue, `✅ Updated schema`, colors.reset, `: ${collectionName}`);
         }
       } catch (error) {
-        log(colors.red, `❌ Error setting up ${collectionName}:`, error.message);
+        log(colors.red, `❌ Error setting up`, colors.reset, `${collectionName} ${error.message}`);
       }
     }
     
