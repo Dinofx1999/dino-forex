@@ -7,7 +7,7 @@ import {  API_ALL_INFO_BROKERS ,
           API_RESET_ALL_ONLY_SYMBOL ,
           API_CONFIG_SYMBOL , 
           API_ANALYSIS_CONFIG , API_PRICE_SYMBOL ,
-          API_RESET_ALL_BROKERS } from './module/constants/API.service';
+          API_RESET_ALL_BROKERS , API_GET_CONFIG_SYMBOL } from './module/constants/API.service';
 // calculatePercentage
 
 const { log, colors , time ,getTimeGMT7, formatString ,truncateString , calculatePercentage } = require('../src/module/helper/text.format');
@@ -111,6 +111,35 @@ export class AppController {
           HttpStatus.INTERNAL_SERVER_ERROR
         );
       }
+  }
+  //Láy Dữ Lieuẹ Cấu Hình Spread của Symbol
+  @Get(API_GET_CONFIG_SYMBOL)
+  async getSymbolConfigHandler(
+    @Param('symbol') symbol: string,
+  ): Promise<any> {
+    try {
+      let config = [];
+      if( symbol.toUpperCase() != "ALL"){
+        config = await getSymbolConfig(symbol);
+      }else{
+        config = await getAllSymbolConfigs();
+      }
+      if (!config) {
+        throw new HttpException(
+          `Symbol config for ${symbol} not found`,
+          HttpStatus.NOT_FOUND
+        );
+      }
+      return {
+        success: true,
+        data: config
+      };
+    } catch (error) {
+      throw new HttpException(
+        error.message || 'Failed to get symbol config',
+        HttpStatus.INTERNAL_SERVER_ERROR
+      );
+    }
   }
   //Thêm vào Phân Tích Lỗi Giá vào Database
   @Post(API_ANALYSIS_CONFIG)
