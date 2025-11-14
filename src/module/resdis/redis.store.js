@@ -453,7 +453,7 @@ async function getPriceSymbollAllBroker(symbol) {
               broker_: brokerData.broker_ || 'Unknown',
               index: brokerData.index || 'N/A',
               typeaccount: brokerData.typeaccount || 'N/A',
-              timeCrr: brokerData.timecurent || 'N/A',
+              timecurent: brokerData.timecurent || 'N/A',
               timeCrr: symbolData.timeCrr || 'N/A',
               bid: symbolData.bid,
               ask: symbolData.ask,
