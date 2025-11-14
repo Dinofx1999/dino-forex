@@ -111,6 +111,10 @@ const schemas = {
             bsonType: ['string', 'double'],
             description: 'Main spread value'
           },
+          Spread_Sync: {
+            bsonType: ['string', 'double'],
+            description: 'Synchronized spread value'
+          },
           IsStable: {
             bsonType: 'bool',
             description: 'Is the symbol stable?',

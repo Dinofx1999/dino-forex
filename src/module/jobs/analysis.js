@@ -18,13 +18,13 @@ const {Insert_UpdateAnalysisConfig} = require('../../database/analysis-config.he
             if(SESSION === "Tokyo") SPREAD_X_CURRENT = symbolConfig_data.Tokyo;
             if(SESSION === "London") SPREAD_X_CURRENT = symbolConfig_data.London;
             if(SESSION === "NewYork") SPREAD_X_CURRENT = symbolConfig_data.NewYork;
-
             if( CURRENT.typeaccount === "STD") SPREAD_MIN_CURRENT = symbolConfig_data.Spread_STD;
             if( CURRENT.typeaccount === "ECN") SPREAD_MIN_CURRENT = symbolConfig_data.Spread_ECN;
         }
 
         //Check BUY
-        let Point_BUY = parseFloat(SPREAD_MIN_CURRENT * SPREAD_X_CURRENT) * parseFloat(Digit(parseInt(CHECK.digit)));
+        let Spread_Sync = parseFloat(SPREAD_MIN_CURRENT * SPREAD_X_CURRENT);
+        let Point_BUY = Spread_Sync * parseFloat(Digit(parseInt(CHECK.digit)));
         let Price_BUY_CURRENT = parseFloat(CURRENT.ask_mdf + Point_BUY);
         let Price_BUY_CHECK = parseFloat(CHECK.bid_mdf);
 
@@ -44,6 +44,7 @@ const {Insert_UpdateAnalysisConfig} = require('../../database/analysis-config.he
                     KhoangCach: parseInt((Price_BUY_CHECK - Price_BUY_CURRENT)*parseFloat(Digit_Rec(parseInt(CHECK.digit)))) ,
                     Symbol_Raw: CURRENT.symbol_raw,
                     Spread_main: CURRENT.spread,
+                    Spread_Sync: Spread_Sync,
                     IsStable: false,
             };
             await Insert_UpdateAnalysisConfig(symbol,Payload);
@@ -51,9 +52,9 @@ const {Insert_UpdateAnalysisConfig} = require('../../database/analysis-config.he
 
 
         //Check SELL
-        let Point_SELL = parseFloat((parseFloat(SPREAD_MIN_CURRENT) * parseFloat(SPREAD_X_CURRENT))*parseFloat(Digit(parseInt(CHECK.digit))));
+        let Point_SELL = Spread_Sync * parseFloat(Digit(parseInt(CHECK.digit)));
         let Price_SELL_CURRENT = parseFloat(CURRENT.bid_mdf - Point_SELL);
-        let Price_SELL_CHECK = parseFloat(CHECK.bid_mdf) + parseFloat(SPREAD_MIN_CURRENT)*parseFloat(Digit(parseInt(CHECK.digit)));
+        let Price_SELL_CHECK = parseFloat(CHECK.bid_mdf) + parseFloat(Spread_Sync);
         if(parseFloat(Price_SELL_CURRENT) > parseFloat(Price_SELL_CHECK)){
             const timeStart = getTimeGMT7();
             const Payload = {
@@ -67,6 +68,7 @@ const {Insert_UpdateAnalysisConfig} = require('../../database/analysis-config.he
                     KhoangCach: parseInt((Price_SELL_CURRENT - Price_SELL_CHECK)*parseFloat(Digit_Rec(parseInt(CHECK.digit)))) ,
                     Symbol_Raw: CURRENT.symbol_raw,
                     Spread_main: CURRENT.spread,
+                    Spread_Sync: Spread_Sync,
                     IsStable: false,
             };
             await Insert_UpdateAnalysisConfig(symbol,Payload);
