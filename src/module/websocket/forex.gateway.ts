@@ -2,134 +2,479 @@
 import { WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Public } from '../../../src/auth/decorators/public.decorator';
 import { Server, WebSocket } from 'ws';
-const { log, colors , time ,getTimeGMT7, formatString ,truncateString } = require('../helper/text.format');
-const {MESS_SERVER } = require('../constants/mess.server');
-const {publish, subscribe} = require('../resdis/redis.pub_sub');
+const { log, colors, time, getTimeGMT7, formatString, truncateString } = require('../helper/text.format');
+const { MESS_SERVER } = require('../constants/mess.server');
+const { publish, subscribe } = require('../resdis/redis.pub_sub');
+const { removeSpaces } = require('../jobs/func.helper');
+const {
+  saveBrokerData,
+  updateBrokerStatus,
+  checkBrokerExists,
+  findBrokerByIndex,
+  clearBroker,
+  getPriceSymbol,
+  clearBroker_Reset
+} = require('../resdis/redis.store');
 
-const {removeSpaces} = require('../jobs/func.helper');
-// removeSpaces
+// ============================================================================
+// INTERFACES & TYPES
+// ============================================================================
+interface BrokerConnection {
+  ws: WebSocket;
+  broker: string;
+  connectedAt: Date;
+}
 
+interface MessageType {
+  type: string;
+  data: {
+    broker?: string;
+    broker_?: string;
+    symbol?: string;
+    index?: string;
+    Payload?: {
+      mess?: string;
+    };
+  };
+}
 
-const { saveBrokerData, updateBrokerStatus, checkBrokerExists, findBrokerByIndex , clearBroker , getPriceSymbol,clearBroker_Reset } = require('../resdis/redis.store')
-
-function ParseJSON(txt: string): any {
+// ============================================================================
+// UTILITIES
+// ============================================================================
+function ParseJSON(txt: string): any[] | null {
   try {
-    return JSON.parse(txt);
+    const parsed = JSON.parse(txt);
+    return Array.isArray(parsed) ? parsed : [parsed];
   } catch {
-    return txt;
+    return null;
   }
 }
 
-const DATA_SET: any = {};
+/**
+ * Lấy broker key từ rawHeaders[13]
+ */
+function getBrokerKey(req: any): string | null {
+  if (!req.rawHeaders || !Array.isArray(req.rawHeaders)) {
+    console.error('rawHeaders không tồn tại hoặc không phải array');
+    return null;
+  }
 
-//REDIS SUBSCRIBE RESET
-(async () => {
-  await subscribe(`${process.env.CHANNEL_RESET}-${process.env.PORT}`, (data) => {
-    if (data.broker && data.symbol && DATA_SET[data.broker]) {
-      // Handle the reset event for the specific broker and symbol
-      DATA_SET[data.broker].ws.send("RESET-"+data.symbol);
-      // console.log(`Reset event received for Broker: ${data.broker}, Symbol: ${data.symbol}`);
-    }else if(data.broker === "ALL"){
-      // Reset all connections
-      Object.keys(DATA_SET).forEach((brokerKey) => {
-        DATA_SET[brokerKey].ws.send("RESET-"+data.symbol);
-      });
-    }else{
-      console.log(`No active connection for Broker: ${data.broker}`);
+  if (req.rawHeaders.length > 13 && req.rawHeaders[13]) {
+    const brokerKey = req.rawHeaders[13].toString().trim();
+    if (brokerKey.length > 0) {
+      return brokerKey;
     }
-  });
+  }
+
+  console.error('Không thể lấy broker từ rawHeaders[13]');
+  console.log('rawHeaders length:', req.rawHeaders?.length);
+  console.log('rawHeaders[13]:', req.rawHeaders?.[13]);
+  
+  return null;
+}
+
+/**
+ * Gửi message an toàn qua WebSocket
+ * Kiểm tra state và wrap trong try-catch
+ */
+function safeSend(ws: WebSocket, message: string, brokerKey?: string): boolean {
+  if (!ws) {
+    console.error('safeSend: WebSocket is null');
+    return false;
+  }
+
+  // Kiểm tra state trước khi send
+  if (ws.readyState !== WebSocket.OPEN) {
+    const states = ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'];
+    console.warn(`safeSend: WebSocket not OPEN (state: ${states[ws.readyState]})${brokerKey ? ` for ${brokerKey}` : ''}`);
+    return false;
+  }
+
+  try {
+    ws.send(message);
+    return true;
+  } catch (error) {
+    console.error(`safeSend error${brokerKey ? ` for ${brokerKey}` : ''}:`, error.message);
+    return false;
+  }
+}
+
+// ============================================================================
+// DATA STORAGE
+// ============================================================================
+const DATA_SET = new Map<string, BrokerConnection>();
+
+// ============================================================================
+// REDIS SUBSCRIPTIONS
+// ============================================================================
+
+// REDIS SUBSCRIBE RESET
+(async () => {
+  try {
+    await subscribe(`${process.env.CHANNEL_RESET}-${process.env.PORT}`, (data) => {
+      try {
+        if (!data || !data.symbol) {
+          console.error('Invalid data in CHANNEL_RESET:', data);
+          return;
+        }
+
+        if (data.broker && data.symbol && DATA_SET.has(data.broker)) {
+          const connection = DATA_SET.get(data.broker);
+          if (connection?.ws) {
+            const sent = safeSend(connection.ws, `RESET-${data.symbol}`, data.broker);
+            if (sent) {
+              console.log(`✅ Sent RESET to ${data.broker} for ${data.symbol}`);
+            }
+          }
+        } else if (data.broker === 'ALL') {
+          console.log(`📢 Broadcasting RESET-${data.symbol} to all connections (${DATA_SET.size})`);
+          let successCount = 0;
+          let failCount = 0;
+
+          DATA_SET.forEach((connection, brokerKey) => {
+            if (connection?.ws) {
+              const sent = safeSend(connection.ws, `RESET-${data.symbol}`, brokerKey);
+              if (sent) {
+                successCount++;
+              } else {
+                failCount++;
+              }
+            }
+          });
+
+          console.log(`📊 Broadcast result: Success=${successCount}, Failed=${failCount}`);
+        } else {
+          console.log(`No active connection for Broker: ${data.broker}`);
+        }
+      } catch (error) {
+        console.error('Error in CHANNEL_RESET subscription:', error);
+      }
+    });
+  } catch (error) {
+    console.error('Failed to subscribe to CHANNEL_RESET:', error);
+  }
 })();
 
-//REDIS SUBSCRIBE RESET ALL SYMBOLS
+// REDIS SUBSCRIBE RESET ALL SYMBOLS
 (async () => {
-  await subscribe(`${process.env.RESET_ALL_SYMBOLS}`, (data:any) => {
-      // Reset all connections
-      Object.keys(DATA_SET).forEach((brokerKey) => {
-       if(data.symbol !== "ALL") DATA_SET[brokerKey].ws.send("RESET-"+data.symbol);
-      });
-  });
+  try {
+    await subscribe(`${process.env.RESET_ALL_SYMBOLS}`, (data: any) => {
+      try {
+        if (!data || !data.symbol) {
+          console.error('Invalid data in RESET_ALL_SYMBOLS:', data);
+          return;
+        }
+
+        const symbol = String(data.symbol).trim();
+        
+        if (symbol === 'ALL') {
+          console.log('⏭️ Skipping symbol "ALL" in RESET_ALL_SYMBOLS');
+          return;
+        }
+
+        console.log(`📢 Broadcasting RESET-${symbol} to ${DATA_SET.size} connections`);
+        let successCount = 0;
+        let failCount = 0;
+
+        DATA_SET.forEach((connection, brokerKey) => {
+          if (connection?.ws) {
+            const sent = safeSend(connection.ws, `RESET-${symbol}`, brokerKey);
+            if (sent) {
+              successCount++;
+            } else {
+              failCount++;
+              // Xóa connection failed
+              setTimeout(() => {
+                if (connection.ws.readyState === WebSocket.CLOSED) {
+                  DATA_SET.delete(brokerKey);
+                  console.log(`🧹 Cleaned up closed connection: ${brokerKey}`);
+                }
+              }, 100);
+            }
+          }
+        });
+
+        console.log(`📊 Broadcast result: Success=${successCount}, Failed=${failCount}`);
+      } catch (error) {
+        console.error('Error in RESET_ALL_SYMBOLS subscription:', error);
+      }
+    });
+  } catch (error) {
+    console.error('Failed to subscribe to RESET_ALL_SYMBOLS:', error);
+  }
 })();
-@Public() 
-@WebSocketGateway({ path: process.env.WS_PATH || '/connect' })
+
+// ============================================================================
+// WEBSOCKET GATEWAY
+// ============================================================================
+@Public()
+@WebSocketGateway({ 
+  path: process.env.WS_PATH || '/connect',
+  // Thêm config để handle tốt hơn
+  perMessageDeflate: false, // Tắt compression
+  maxPayload: 10 * 1024 * 1024, // 10MB
+})
 export class SimpleGateway {
   @WebSocketServer() server!: Server;
-  handleConnection(client: WebSocket , req: any) {
-  client.send("Connected to Server-"+getTimeGMT7());
 
-  if(DATA_SET[req.rawHeaders[13]] === undefined || DATA_SET[req.rawHeaders[13]] === null){
-    DATA_SET[req.rawHeaders[13]] = { ws: client , broker: req.rawHeaders[13]};
-  }
-log(colors.green,
-  `${process.env.ICON_CONNECT_LOG} NEW CONNECTION`,
-  colors.cyan,
-  ` ${req.rawHeaders[13]} | PID=${process.pid} | PORT=${process.env.PORT} Length Data Set: ${Object.keys(DATA_SET).length}`,
-);
-
-  // Khi client gửi message
-  client.on('message', async (raw: Buffer) => {
-    const txt = raw.toString('utf8').trim();
-    const TYPE = ParseJSON(txt)[0];
-    if(TYPE.type === process.env.TYPE_GET_INDEX){
-      const index = TYPE.data.Payload.mess;
-      const response = await findBrokerByIndex(index);
-      if(response === null){
-        const message = MESS_SERVER(process.env.TYPE_GET_INDEX, true , `No data found for index ${index}`);
-        client.send(message);
-        console.log(`${req.rawHeaders[13]}  Success ${index}`);
-        return;
-      }else{
-        if(TYPE.data.broker === response){
-          const message = MESS_SERVER(process.env.TYPE_GET_INDEX, true , `No data found for index ${index}`);
-          client.send(message);
-        }else{
-          client.send(MESS_SERVER(process.env.TYPE_GET_INDEX, false , response));
-        }
-        return;
-      }
-    }else if (TYPE.type === process.env.TYPE_SET_DATA) {
-      await saveBrokerData(TYPE.data.broker_,TYPE.data);
-    }else if (TYPE.type === process.env.TYPE_RESET_DATA) {
-      //  await clearBroker_Reset(removeSpaces(TYPE.data.broker, "-"));
-       
-       const Info = await getPriceSymbol(TYPE.data.symbol);
-       await updateBrokerStatus(`${formatString(TYPE.data.broker)}`,`[${TYPE.data.Payload.mess}] - ${truncateString(TYPE.data.symbol)}`);
-       if(Info){
-             Info.Index = TYPE.data.index;
-             Info.Type = TYPE.type;
-             log(colors.green,`${process.env.TYPE_RESET_DATA}` ,colors.reset ,`Broker ${TYPE.data.broker} -> Symbol: ${TYPE.data.symbol} - [ ${TYPE.data.Payload.mess} ] <=> Broker Check: ${Info.Broker}`);
-             client.send(JSON.stringify(Info));
-       }else{
-             const mess = {
-                Symbol: TYPE.data.symbol,
-                Broker: TYPE.data.broker,
-                Bid:  'null',
-                Digit: 'null',
-                Time: 'null',
-                Index: TYPE.data.index,
-                Type : TYPE.type
-             }
-             log(colors.yellow,`${process.env.TYPE_RESET_DATA}` ,colors.reset ,`Broker ${TYPE.data.broker} -> Symbol: ${TYPE.data.symbol} - [ ${TYPE.data.Payload.mess} ] <=> Broker Check: ${mess.Broker}`);
-             client.send(JSON.stringify(mess));
-       }
-    }
+  handleConnection(client: WebSocket, req: any) {
+    // ========================================================================
+    // 1. LẤY BROKER KEY
+    // ========================================================================
+    const brokerKey = getBrokerKey(req);
     
-    if (txt === 'ping') {
-      client.send('pong');
+    if (!brokerKey) {
+      log(colors.red, `${process.env.ICON_WARNING_LOG} Connection rejected: Missing broker identifier`);
+      safeSend(client, 'ERROR: Missing broker identifier from rawHeaders[13]');
+      setTimeout(() => client.close(1008, 'Missing broker identifier'), 100);
       return;
     }
-  });
 
-  // Khi client đóng kết nối
-  client.on('close', async () => {
-    log(colors.red, `${process.env.ICON_DISCONNECT_LOG} DISCONNECTION`, colors.cyan, ` ${req.rawHeaders[13]} | PID=${process.pid}`);
-    await clearBroker(removeSpaces(req.rawHeaders[13], "-"));
-    delete DATA_SET[req.rawHeaders[13]];
-  });
+    // ========================================================================
+    // 2. ĐÓNG CONNECTION CŨ
+    // ========================================================================
+    const existingConnection = DATA_SET.get(brokerKey);
+    if (existingConnection?.ws) {
+      try {
+        safeSend(existingConnection.ws, 'DISCONNECTED: New connection established', brokerKey);
+        existingConnection.ws.close(1000, 'Replaced by new connection');
+      } catch (error) {
+        console.error('Error closing existing connection:', error);
+      }
+    }
 
-  // Khi client xảy ra lỗi
-  client.on('error', (err) => {
-    console.error(`${process.env.ICON_WARNING_LOG} Client error | PID=${process.pid}:`, err.message);
-  });
+    // ========================================================================
+    // 3. LƯU CONNECTION MỚI
+    // ========================================================================
+    DATA_SET.set(brokerKey, {
+      ws: client,
+      broker: brokerKey,
+      connectedAt: new Date()
+    });
+
+    safeSend(client, `Connected to Server-${getTimeGMT7()}`, brokerKey);
+
+    log(
+      colors.green,
+      `${process.env.ICON_CONNECT_LOG} NEW CONNECTION`,
+      colors.cyan,
+      ` ${brokerKey} | PID=${process.pid} | PORT=${process.env.PORT} | Active: ${DATA_SET.size}`
+    );
+
+    // ========================================================================
+    // 4. XỬ LÝ MESSAGE TỪ CLIENT
+    // ========================================================================
+    client.on('message', async (raw: Buffer) => {
+      try {
+        // Validate raw buffer
+        if (!raw || raw.length === 0) {
+          console.warn(`Empty message from ${brokerKey}`);
+          return;
+        }
+
+        // Check size (max 10MB)
+        if (raw.length > 10 * 1024 * 1024) {
+          console.error(`Message too large from ${brokerKey}: ${raw.length} bytes`);
+          safeSend(client, 'ERROR: Message too large', brokerKey);
+          return;
+        }
+
+        // Decode to string
+        let txt: string;
+        try {
+          txt = raw.toString('utf8').trim();
+        } catch (decodeError) {
+          console.error(`Decode error from ${brokerKey}:`, decodeError);
+          safeSend(client, 'ERROR: Cannot decode message', brokerKey);
+          return;
+        }
+
+        if (!txt || txt.length === 0) {
+          return;
+        }
+
+        // Quick response cho ping
+        if (txt === 'ping') {
+          safeSend(client, 'pong', brokerKey);
+          return;
+        }
+
+        // Parse JSON
+        const parsed = ParseJSON(txt);
+        if (!parsed || parsed.length === 0 || !parsed[0]) {
+          safeSend(client, 'ERROR: Invalid message format', brokerKey);
+          return;
+        }
+
+        const TYPE: MessageType = parsed[0];
+
+        if (!TYPE.type) {
+          safeSend(client, 'ERROR: Message type is required', brokerKey);
+          return;
+        }
+
+        // ====================================================================
+        // SWITCH CASE XỬ LÝ CÁC LOẠI MESSAGE
+        // ====================================================================
+        switch (TYPE.type) {
+          // ==================================================================
+          // CASE 1: GET INDEX
+          // ==================================================================
+          case process.env.TYPE_GET_INDEX: {
+            if (!TYPE.data?.Payload?.mess) {
+              safeSend(client, MESS_SERVER(process.env.TYPE_GET_INDEX, true, 'Missing index parameter'), brokerKey);
+              break;
+            }
+
+            const index = TYPE.data.Payload.mess;
+            const response = await findBrokerByIndex(index);
+
+            if (response === null) {
+              const message = MESS_SERVER(process.env.TYPE_GET_INDEX, true, `No data found for index ${index}`);
+              safeSend(client, message, brokerKey);
+              console.log(`${brokerKey} Success ${index}`);
+            } else {
+              const message = TYPE.data.broker === response
+                ? MESS_SERVER(process.env.TYPE_GET_INDEX, true, `No data found for index ${index}`)
+                : MESS_SERVER(process.env.TYPE_GET_INDEX, false, response);
+              safeSend(client, message, brokerKey);
+            }
+            break;
+          }
+
+          // ==================================================================
+          // CASE 2: SET DATA
+          // ==================================================================
+          case process.env.TYPE_SET_DATA: {
+            if (!TYPE.data?.broker_) {
+              safeSend(client, 'ERROR: Missing broker_ parameter', brokerKey);
+              break;
+            }
+
+            try {
+              await saveBrokerData(TYPE.data.broker_, TYPE.data);
+            } catch (error) {
+              console.error('Error saving broker data:', error);
+              safeSend(client, 'ERROR: Failed to save data', brokerKey);
+            }
+            break;
+          }
+
+          // ==================================================================
+          // CASE 3: RESET DATA
+          // ==================================================================
+          case process.env.TYPE_RESET_DATA: {
+            if (!TYPE.data?.symbol || !TYPE.data?.broker) {
+              safeSend(client, 'ERROR: Missing symbol or broker parameter', brokerKey);
+              break;
+            }
+
+            try {
+              const Info = await getPriceSymbol(TYPE.data.symbol);
+              
+              await updateBrokerStatus(
+                `${formatString(TYPE.data.broker)}`,
+                `[${TYPE.data.Payload?.mess || 'N/A'}] - ${truncateString(TYPE.data.symbol)}`
+              );
+
+              let responseData;
+              let logColor;
+
+              if (Info) {
+                responseData = {
+                  ...Info,
+                  Index: TYPE.data.index,
+                  Type: TYPE.type
+                };
+                logColor = colors.green;
+              } else {
+                responseData = {
+                  Symbol: TYPE.data.symbol,
+                  Broker: TYPE.data.broker,
+                  Bid: 'null',
+                  Digit: 'null',
+                  Time: 'null',
+                  Index: TYPE.data.index,
+                  Type: TYPE.type
+                };
+                logColor = colors.yellow;
+              }
+
+              log(
+                logColor,
+                `${process.env.TYPE_RESET_DATA}`,
+                colors.reset,
+                `Broker ${TYPE.data.broker} -> Symbol: ${TYPE.data.symbol} - [${TYPE.data.Payload?.mess || 'N/A'}] <=> Broker Check: ${responseData.Broker}`
+              );
+
+              safeSend(client, JSON.stringify(responseData), brokerKey);
+            } catch (error) {
+              console.error('Error in RESET_DATA:', error);
+              safeSend(client, 'ERROR: Failed to process reset', brokerKey);
+            }
+            break;
+          }
+
+          // ==================================================================
+          // DEFAULT: UNKNOWN MESSAGE TYPE
+          // ==================================================================
+          default: {
+            const errorMessage = `ERROR: Unknown message type: ${TYPE.type}`;
+            safeSend(client, errorMessage, brokerKey);
+            log(colors.yellow, `${process.env.ICON_WARNING_LOG} Unknown message type:`, TYPE.type, 'from', brokerKey);
+            break;
+          }
+        }
+      } catch (error) {
+        console.error(`${process.env.ICON_WARNING_LOG} Message handling error for ${brokerKey}:`, error);
+        safeSend(client, `ERROR: ${error instanceof Error ? error.message : 'Internal server error'}`, brokerKey);
+      }
+    });
+
+    // ========================================================================
+    // 5. XỬ LÝ ĐÓNG KẾT NỐI
+    // ========================================================================
+    client.on('close', async (code, reason) => {
+      log(
+        colors.red,
+        `${process.env.ICON_DISCONNECT_LOG} DISCONNECTION`,
+        colors.cyan,
+        ` ${brokerKey} | Code: ${code} | Reason: ${reason || 'N/A'} | PID=${process.pid} | Remaining: ${DATA_SET.size - 1}`
+      );
+
+      try {
+        await clearBroker(removeSpaces(brokerKey, '-'));
+      } catch (error) {
+        console.error(`Error clearing broker ${brokerKey}:`, error);
+      }
+
+      DATA_SET.delete(brokerKey);
+    });
+
+    // ========================================================================
+    // 6. XỬ LÝ LỖI WEBSOCKET
+    // ========================================================================
+    client.on('error', (err: any) => {
+      console.error(
+        `${process.env.ICON_WARNING_LOG} WebSocket error | Broker: ${brokerKey} | PID=${process.pid}`
+      );
+      console.error('Error details:', {
+        message: err.message,
+        code: err.code,
+        name: err.name
+      });
+
+      // Cleanup connection khi có lỗi
+      try {
+        if (client.readyState !== WebSocket.CLOSED) {
+          client.close(1011, 'Internal error');
+        }
+      } catch (e) {
+        console.error('Error closing client on error:', e);
+      }
+
+      // Xóa khỏi DATA_SET
+      DATA_SET.delete(brokerKey);
+    });
+  }
 }
-}
-

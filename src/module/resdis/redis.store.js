@@ -202,7 +202,7 @@ async function clearBroker(broker) {
     const result = await redis.del(key);
     
     if (result === 0) {
-      log(colors.yellow, `${process.env.ICON_WARNING_LOG} Redis`, colors.cyan, `Không tìm thấy Broker:${broker}`);
+      log(colors.yellow, `${process.env.ICON_WARNING_LOG}  Redis`, colors.cyan, `Không tìm thấy Broker:${broker}`);
       return;
     }
     
