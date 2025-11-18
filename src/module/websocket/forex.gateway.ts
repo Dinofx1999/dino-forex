@@ -2,6 +2,7 @@
 import { WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Public } from '../../../src/auth/decorators/public.decorator';
 import { Server, WebSocket } from 'ws';
+import e from 'express';
 const { log, colors, time, getTimeGMT7, formatString, truncateString } = require('../helper/text.format');
 const { MESS_SERVER } = require('../constants/mess.server');
 const { publish, subscribe } = require('../resdis/redis.pub_sub');
@@ -372,13 +373,10 @@ export class SimpleGateway {
             try {
               const Info = await getPriceSymbol(TYPE.data.symbol);
               
-              await updateBrokerStatus(
-                `${formatString(TYPE.data.broker)}`,
-                `[${TYPE.data.Payload?.mess || 'N/A'}] - ${truncateString(TYPE.data.symbol)}`
-              );
+              await updateBrokerStatus(`${formatString(TYPE.data.broker)}`,`[${TYPE.data.Payload?.mess || 'N/A'}] - ${truncateString(TYPE.data.symbol)}`);
 
-              let responseData;
-              let logColor;
+              let responseData : any;
+              let logColor : any;
 
               if (Info) {
                 responseData = {
@@ -406,8 +404,12 @@ export class SimpleGateway {
                 colors.reset,
                 `Broker ${TYPE.data.broker} -> Symbol: ${TYPE.data.symbol} - [${TYPE.data.Payload?.mess || 'N/A'}] <=> Broker Check: ${responseData.Broker}`
               );
-
-              safeSend(client, JSON.stringify(responseData), brokerKey);
+              if(responseData.Index !== 'N/A' || responseData.Index !== null || responseData.Index !== 0){
+                 safeSend(client, JSON.stringify(responseData), brokerKey);
+              }else{
+                safeSend(client, 'ERROR: Invalid Index value', brokerKey);
+              }
+             
             } catch (error) {
               console.error('Error in RESET_DATA:', error);
               safeSend(client, 'ERROR: Failed to process reset', brokerKey);
