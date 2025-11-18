@@ -49,10 +49,10 @@ interface MessageType {
 // ============================================================================
 // UTILITIES
 // ============================================================================
-function ParseJSON<T = any>(txt: string): T[] | null {
+function ParseJSON<T = any>(txt: string): T | null {
   try {
     const parsed = JSON.parse(txt);
-    return Array.isArray(parsed) ? (parsed as T[]) : [parsed as T];
+    return parsed as T;
   } catch {
     return null;
   }
@@ -88,14 +88,17 @@ function getBrokerKey(req: any): string | null {
  */
 function safeSend(ws: WebSocket, message: string, brokerKey?: string): boolean {
   if (!ws) {
-    console.error('safeSend: WebSocket is null');
+    console.error('safeSend: WebSocket is null', brokerKey ? `for ${brokerKey}` : '');
     return false;
   }
 
   if (ws.readyState !== WebSocket.OPEN) {
     const states = ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'];
-    console.warn(
-      `safeSend: WebSocket not OPEN (state: ${states[ws.readyState] || ws.readyState})${
+    const stateLabel = states[ws.readyState] || ws.readyState;
+
+    // Log nhẹ nhàng cho socket đã đóng
+    console.log(
+      `safeSend: skip send because socket not OPEN (state: ${stateLabel})${
         brokerKey ? ` for ${brokerKey}` : ''
       }`
     );
@@ -106,13 +109,16 @@ function safeSend(ws: WebSocket, message: string, brokerKey?: string): boolean {
     ws.send(message);
     return true;
   } catch (error: any) {
-    console.error(`safeSend error${brokerKey ? ` for ${brokerKey}` : ''}:`, error?.message || error);
+    console.error(
+      `safeSend error${brokerKey ? ` for ${brokerKey}` : ''}:`,
+      error?.message || error
+    );
     return false;
   }
 }
 
 // ============================================================================
-// DATA STORAGE
+// DATA STORAGE (MỖI CLUSTER WORKER RIÊNG BIỆT)
 // ============================================================================
 const DATA_SET = new Map<string, BrokerConnection>();
 
@@ -136,11 +142,24 @@ const DATA_SET = new Map<string, BrokerConnection>();
             const sent = safeSend(connection.ws, `RESET-${data.symbol}`, data.broker);
             if (sent) {
               console.log(`✅ Sent RESET to ${data.broker} for ${data.symbol}`);
+            } else {
+              // Nếu socket đã CLOSED/CLOSING thì dọn khỏi DATA_SET
+              if (
+                connection.ws.readyState === WebSocket.CLOSED ||
+                connection.ws.readyState === WebSocket.CLOSING
+              ) {
+                DATA_SET.delete(data.broker);
+                console.log(`🧹 Remove closed connection from DATA_SET: ${data.broker}`);
+              }
             }
           }
         } else if (data.broker === 'ALL') {
+          console.log(
+            `📢 Broadcasting RESET-${data.symbol} to all connections (${DATA_SET.size})`
+          );
           let successCount = 0;
           let failCount = 0;
+
           DATA_SET.forEach((connection, brokerKey) => {
             if (connection?.ws) {
               const sent = safeSend(connection.ws, `RESET-${data.symbol}`, brokerKey);
@@ -148,9 +167,20 @@ const DATA_SET = new Map<string, BrokerConnection>();
                 successCount++;
               } else {
                 failCount++;
+                if (
+                  connection.ws.readyState === WebSocket.CLOSED ||
+                  connection.ws.readyState === WebSocket.CLOSING
+                ) {
+                  DATA_SET.delete(brokerKey);
+                  console.log(
+                    `🧹 Cleaned up closed connection from DATA_SET: ${brokerKey}`
+                  );
+                }
               }
             }
           });
+
+          console.log(`📊 Broadcast result: Success=${successCount}, Failed=${failCount}`);
         } else {
           console.log(`No active connection for Broker: ${data.broker}`);
         }
@@ -179,6 +209,10 @@ const DATA_SET = new Map<string, BrokerConnection>();
           console.log('⏭️ Skipping symbol "ALL" in RESET_ALL_SYMBOLS');
           return;
         }
+
+        console.log(
+          `📢 Broadcasting RESET-${symbol} to ${DATA_SET.size} connections`
+        );
         let successCount = 0;
         let failCount = 0;
 
@@ -189,16 +223,20 @@ const DATA_SET = new Map<string, BrokerConnection>();
               successCount++;
             } else {
               failCount++;
-              // Cleanup nếu đã CLOSED
-              setTimeout(() => {
-                if (connection.ws.readyState === WebSocket.CLOSED) {
-                  DATA_SET.delete(brokerKey);
-                  console.log(`🧹 Cleaned up closed connection: ${brokerKey}`);
-                }
-              }, 100);
+              if (
+                connection.ws.readyState === WebSocket.CLOSED ||
+                connection.ws.readyState === WebSocket.CLOSING
+              ) {
+                DATA_SET.delete(brokerKey);
+                console.log(
+                  `🧹 Cleaned up closed connection from DATA_SET: ${brokerKey}`
+                );
+              }
             }
           }
         });
+
+        console.log(`📊 Broadcast result: Success=${successCount}, Failed=${failCount}`);
       } catch (error) {
         console.error('Error in RESET_ALL_SYMBOLS subscription:', error);
       }
@@ -214,8 +252,8 @@ const DATA_SET = new Map<string, BrokerConnection>();
 @Public()
 @WebSocketGateway({
   path: process.env.WS_PATH || '/connect',
-  perMessageDeflate: false,
-  maxPayload: 10 * 1024 * 1024 // 10MB
+  perMessageDeflate: false,           // tắt nén để giảm CPU, phù hợp data lớn/nhanh
+  maxPayload: 10 * 1024 * 1024        // 10MB / message
 })
 export class SimpleGateway {
   @WebSocketServer() server!: Server;
@@ -276,8 +314,9 @@ export class SimpleGateway {
     // ========================================================================
     client.on('message', async (raw: Buffer) => {
       try {
+        // --- VALIDATION KÍCH THƯỚC / RỖNG ---
         if (!raw || raw.length === 0) {
-          console.warn(`Empty message from ${brokerKey}`);
+          // với tần suất cao, tránh log nhiều
           return;
         }
 
@@ -289,6 +328,7 @@ export class SimpleGateway {
           return;
         }
 
+        // --- DECODE ---
         let txt: string;
         try {
           txt = raw.toString('utf8').trim();
@@ -302,18 +342,18 @@ export class SimpleGateway {
           return;
         }
 
+        // --- PING FAST PATH ---
         if (txt === 'ping') {
           safeSend(client, 'pong', brokerKey);
           return;
         }
 
-        const parsed = ParseJSON<MessageType>(txt);
-        if (!parsed || parsed.length === 0 || !parsed[0]) {
+        // --- PARSE JSON ---
+        const TYPE = ParseJSON<MessageType>(txt);
+        if (!TYPE || typeof TYPE !== 'object') {
           safeSend(client, 'ERROR: Invalid message format', brokerKey);
           return;
         }
-
-        const TYPE = parsed[0];
 
         if (!TYPE.type) {
           safeSend(client, 'ERROR: Message type is required', brokerKey);
@@ -342,6 +382,9 @@ export class SimpleGateway {
             }
 
             const index = TYPE.data.Payload.mess;
+
+            // Để tránh block event loop khi Redis chậm,
+            // có thể tách ra setImmediate nếu thấy lag.
             const response = await findBrokerByIndex(index);
 
             if (response === null) {
@@ -351,7 +394,6 @@ export class SimpleGateway {
                 `No data found for index ${index}`
               );
               safeSend(client, message, brokerKey);
-              console.log(`${brokerKey} Success ${index}`);
             } else {
               const message =
                 TYPE.data.broker === response
@@ -371,7 +413,7 @@ export class SimpleGateway {
           }
 
           // ==================================================================
-          // CASE 2: SET DATA
+          // CASE 2: SET DATA (SYNC PRICE / LƯU DỮ LIỆU LỚN)
           // ==================================================================
           case process.env.TYPE_SET_DATA: {
             if (!TYPE.data?.broker_) {
@@ -384,6 +426,13 @@ export class SimpleGateway {
             }
 
             try {
+              // Nếu dữ liệu rất lớn và gửi liên tục 100ms,
+              // có thể chuyển sang "fire-and-forget" cho mượt hơn:
+              //
+              //   saveBrokerData(TYPE.data.broker_, TYPE.data)
+              //     .catch(err => console.error('Error saving broker data:', err));
+              //
+              // Ở đây vẫn await để đảm bảo chắc chắn.
               await saveBrokerData(TYPE.data.broker_, TYPE.data);
             } catch (error) {
               console.error('Error saving broker data:', error);
@@ -415,9 +464,6 @@ export class SimpleGateway {
                 )}`
               );
 
-              let responseData: any;
-              let logColor: any;
-
               // Chuẩn hóa Index từ request
               const rawIndex = TYPE.data.index;
               const parsedIndex =
@@ -426,6 +472,9 @@ export class SimpleGateway {
                   : Number(rawIndex);
               const hasValidIndex =
                 parsedIndex !== null && Number.isFinite(parsedIndex);
+
+              let responseData: any;
+              let logColor: any;
 
               if (Info) {
                 responseData = {
@@ -458,7 +507,6 @@ export class SimpleGateway {
                 }`
               );
 
-              // Gửi luôn response (nếu bạn muốn check chặt hơn có thể thêm điều kiện)
               safeSend(client, JSON.stringify(responseData), brokerKey);
             } catch (error) {
               console.error('Error in RESET_DATA:', error);

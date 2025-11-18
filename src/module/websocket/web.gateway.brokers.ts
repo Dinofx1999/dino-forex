@@ -137,7 +137,7 @@ export class SimpleGateway_WEB_BROKERS implements OnModuleInit, OnModuleDestroy 
     // 👇 LƯU INTERVAL VÀO MAP
     this.clientIntervals.set(clientId, jobInterval);
     
-    log(colors.green, `✅ Job started for ${clientId}`, colors.reset, '');
+    // log(colors.green, `✅ Job started for ${clientId}`, colors.reset, '');
   }
 
   // ✅ STOP JOB (KILL INTERVAL)
