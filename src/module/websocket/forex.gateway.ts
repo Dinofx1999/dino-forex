@@ -139,12 +139,8 @@ const DATA_SET = new Map<string, BrokerConnection>();
             }
           }
         } else if (data.broker === 'ALL') {
-          console.log(
-            `📢 Broadcasting RESET-${data.symbol} to all connections (${DATA_SET.size})`
-          );
           let successCount = 0;
           let failCount = 0;
-
           DATA_SET.forEach((connection, brokerKey) => {
             if (connection?.ws) {
               const sent = safeSend(connection.ws, `RESET-${data.symbol}`, brokerKey);
@@ -185,10 +181,6 @@ const DATA_SET = new Map<string, BrokerConnection>();
           console.log('⏭️ Skipping symbol "ALL" in RESET_ALL_SYMBOLS');
           return;
         }
-
-        console.log(
-          `📢 Broadcasting RESET-${symbol} to ${DATA_SET.size} connections`
-        );
         let successCount = 0;
         let failCount = 0;
 
