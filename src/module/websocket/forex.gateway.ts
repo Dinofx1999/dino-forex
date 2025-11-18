@@ -63,7 +63,7 @@ interface Metrics {
 // CONSTANTS
 // ============================================================================
 const MAX_BUFFER_SIZE = 10 * 1024 * 1024; // 10MB
-const HEARTBEAT_INTERVAL = 30000; // 30 seconds
+const HEARTBEAT_INTERVAL = 300; // 30 seconds
 const IDLE_TIMEOUT = 5 * 60 * 1000; // 5 minutes
 const IDLE_CHECK_INTERVAL = 60000; // 1 minute
 const METRICS_LOG_INTERVAL = 60000; // 1 minute
@@ -389,7 +389,7 @@ export class SimpleGateway {
 
     const heartbeatInterval = setInterval(() => {
       if (client.readyState === WebSocket.OPEN) {
-        safeSend(client, 'ping', brokerKey);
+        safeSend(client, 'pong', brokerKey);
       } else {
         clearInterval(heartbeatInterval);
         this.cleanupConnection(brokerKey);
@@ -639,10 +639,6 @@ export class SimpleGateway {
         connection.messageBuffer = Buffer.alloc(0);
 
         // Quick response for ping
-        if (txt === 'ping') {
-          safeSend(client, 'pong', brokerKey);
-          return;
-        }
 
         // Parse JSON
         const parsed = ParseJSON(txt);
