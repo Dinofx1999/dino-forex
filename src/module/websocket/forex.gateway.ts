@@ -2,8 +2,15 @@
 import { WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Public } from '../../../src/auth/decorators/public.decorator';
 import { Server, WebSocket } from 'ws';
-import e from 'express';
-const { log, colors, time, getTimeGMT7, formatString, truncateString } = require('../helper/text.format');
+
+const {
+  log,
+  colors,
+  time,
+  getTimeGMT7,
+  formatString,
+  truncateString
+} = require('../helper/text.format');
 const { MESS_SERVER } = require('../constants/mess.server');
 const { publish, subscribe } = require('../resdis/redis.pub_sub');
 const { removeSpaces } = require('../jobs/func.helper');
@@ -32,7 +39,7 @@ interface MessageType {
     broker?: string;
     broker_?: string;
     symbol?: string;
-    index?: string;
+    index?: string | number;
     Payload?: {
       mess?: string;
     };
@@ -42,10 +49,10 @@ interface MessageType {
 // ============================================================================
 // UTILITIES
 // ============================================================================
-function ParseJSON(txt: string): any[] | null {
+function ParseJSON<T = any>(txt: string): T[] | null {
   try {
     const parsed = JSON.parse(txt);
-    return Array.isArray(parsed) ? parsed : [parsed];
+    return Array.isArray(parsed) ? (parsed as T[]) : [parsed as T];
   } catch {
     return null;
   }
@@ -53,6 +60,7 @@ function ParseJSON(txt: string): any[] | null {
 
 /**
  * Lấy broker key từ rawHeaders[13]
+ * Lưu ý: phụ thuộc client gửi header cố định
  */
 function getBrokerKey(req: any): string | null {
   if (!req.rawHeaders || !Array.isArray(req.rawHeaders)) {
@@ -70,7 +78,7 @@ function getBrokerKey(req: any): string | null {
   console.error('Không thể lấy broker từ rawHeaders[13]');
   console.log('rawHeaders length:', req.rawHeaders?.length);
   console.log('rawHeaders[13]:', req.rawHeaders?.[13]);
-  
+
   return null;
 }
 
@@ -84,18 +92,21 @@ function safeSend(ws: WebSocket, message: string, brokerKey?: string): boolean {
     return false;
   }
 
-  // Kiểm tra state trước khi send
   if (ws.readyState !== WebSocket.OPEN) {
     const states = ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'];
-    console.warn(`safeSend: WebSocket not OPEN (state: ${states[ws.readyState]})${brokerKey ? ` for ${brokerKey}` : ''}`);
+    console.warn(
+      `safeSend: WebSocket not OPEN (state: ${states[ws.readyState] || ws.readyState})${
+        brokerKey ? ` for ${brokerKey}` : ''
+      }`
+    );
     return false;
   }
 
   try {
     ws.send(message);
     return true;
-  } catch (error) {
-    console.error(`safeSend error${brokerKey ? ` for ${brokerKey}` : ''}:`, error.message);
+  } catch (error: any) {
+    console.error(`safeSend error${brokerKey ? ` for ${brokerKey}` : ''}:`, error?.message || error);
     return false;
   }
 }
@@ -109,10 +120,10 @@ const DATA_SET = new Map<string, BrokerConnection>();
 // REDIS SUBSCRIPTIONS
 // ============================================================================
 
-// REDIS SUBSCRIBE RESET
+// REDIS SUBSCRIBE RESET (theo broker + port)
 (async () => {
   try {
-    await subscribe(`${process.env.CHANNEL_RESET}-${process.env.PORT}`, (data) => {
+    await subscribe(`${process.env.CHANNEL_RESET}-${process.env.PORT}`, (data: any) => {
       try {
         if (!data || !data.symbol) {
           console.error('Invalid data in CHANNEL_RESET:', data);
@@ -128,7 +139,9 @@ const DATA_SET = new Map<string, BrokerConnection>();
             }
           }
         } else if (data.broker === 'ALL') {
-          console.log(`📢 Broadcasting RESET-${data.symbol} to all connections (${DATA_SET.size})`);
+          console.log(
+            `📢 Broadcasting RESET-${data.symbol} to all connections (${DATA_SET.size})`
+          );
           let successCount = 0;
           let failCount = 0;
 
@@ -167,13 +180,15 @@ const DATA_SET = new Map<string, BrokerConnection>();
         }
 
         const symbol = String(data.symbol).trim();
-        
+
         if (symbol === 'ALL') {
           console.log('⏭️ Skipping symbol "ALL" in RESET_ALL_SYMBOLS');
           return;
         }
 
-        console.log(`📢 Broadcasting RESET-${symbol} to ${DATA_SET.size} connections`);
+        console.log(
+          `📢 Broadcasting RESET-${symbol} to ${DATA_SET.size} connections`
+        );
         let successCount = 0;
         let failCount = 0;
 
@@ -184,7 +199,7 @@ const DATA_SET = new Map<string, BrokerConnection>();
               successCount++;
             } else {
               failCount++;
-              // Xóa connection failed
+              // Cleanup nếu đã CLOSED
               setTimeout(() => {
                 if (connection.ws.readyState === WebSocket.CLOSED) {
                   DATA_SET.delete(brokerKey);
@@ -209,11 +224,10 @@ const DATA_SET = new Map<string, BrokerConnection>();
 // WEBSOCKET GATEWAY
 // ============================================================================
 @Public()
-@WebSocketGateway({ 
+@WebSocketGateway({
   path: process.env.WS_PATH || '/connect',
-  // Thêm config để handle tốt hơn
-  perMessageDeflate: false, // Tắt compression
-  maxPayload: 10 * 1024 * 1024, // 10MB
+  perMessageDeflate: false,
+  maxPayload: 10 * 1024 * 1024 // 10MB
 })
 export class SimpleGateway {
   @WebSocketServer() server!: Server;
@@ -223,21 +237,28 @@ export class SimpleGateway {
     // 1. LẤY BROKER KEY
     // ========================================================================
     const brokerKey = getBrokerKey(req);
-    
+
     if (!brokerKey) {
-      log(colors.red, `${process.env.ICON_WARNING_LOG} Connection rejected: Missing broker identifier`);
+      log(
+        colors.red,
+        `${process.env.ICON_WARNING_LOG} Connection rejected: Missing broker identifier`
+      );
       safeSend(client, 'ERROR: Missing broker identifier from rawHeaders[13]');
       setTimeout(() => client.close(1008, 'Missing broker identifier'), 100);
       return;
     }
 
     // ========================================================================
-    // 2. ĐÓNG CONNECTION CŨ
+    // 2. ĐÓNG CONNECTION CŨ (NẾU CÓ)
     // ========================================================================
     const existingConnection = DATA_SET.get(brokerKey);
     if (existingConnection?.ws) {
       try {
-        safeSend(existingConnection.ws, 'DISCONNECTED: New connection established', brokerKey);
+        safeSend(
+          existingConnection.ws,
+          'DISCONNECTED: New connection established',
+          brokerKey
+        );
         existingConnection.ws.close(1000, 'Replaced by new connection');
       } catch (error) {
         console.error('Error closing existing connection:', error);
@@ -267,20 +288,19 @@ export class SimpleGateway {
     // ========================================================================
     client.on('message', async (raw: Buffer) => {
       try {
-        // Validate raw buffer
         if (!raw || raw.length === 0) {
           console.warn(`Empty message from ${brokerKey}`);
           return;
         }
 
-        // Check size (max 10MB)
         if (raw.length > 10 * 1024 * 1024) {
-          console.error(`Message too large from ${brokerKey}: ${raw.length} bytes`);
+          console.error(
+            `Message too large from ${brokerKey}: ${raw.length} bytes`
+          );
           safeSend(client, 'ERROR: Message too large', brokerKey);
           return;
         }
 
-        // Decode to string
         let txt: string;
         try {
           txt = raw.toString('utf8').trim();
@@ -294,20 +314,18 @@ export class SimpleGateway {
           return;
         }
 
-        // Quick response cho ping
         if (txt === 'ping') {
           safeSend(client, 'pong', brokerKey);
           return;
         }
 
-        // Parse JSON
-        const parsed = ParseJSON(txt);
+        const parsed = ParseJSON<MessageType>(txt);
         if (!parsed || parsed.length === 0 || !parsed[0]) {
           safeSend(client, 'ERROR: Invalid message format', brokerKey);
           return;
         }
 
-        const TYPE: MessageType = parsed[0];
+        const TYPE = parsed[0];
 
         if (!TYPE.type) {
           safeSend(client, 'ERROR: Message type is required', brokerKey);
@@ -323,7 +341,15 @@ export class SimpleGateway {
           // ==================================================================
           case process.env.TYPE_GET_INDEX: {
             if (!TYPE.data?.Payload?.mess) {
-              safeSend(client, MESS_SERVER(process.env.TYPE_GET_INDEX, true, 'Missing index parameter'), brokerKey);
+              safeSend(
+                client,
+                MESS_SERVER(
+                  process.env.TYPE_GET_INDEX,
+                  true,
+                  'Missing index parameter'
+                ),
+                brokerKey
+              );
               break;
             }
 
@@ -331,13 +357,26 @@ export class SimpleGateway {
             const response = await findBrokerByIndex(index);
 
             if (response === null) {
-              const message = MESS_SERVER(process.env.TYPE_GET_INDEX, true, `No data found for index ${index}`);
+              const message = MESS_SERVER(
+                process.env.TYPE_GET_INDEX,
+                true,
+                `No data found for index ${index}`
+              );
               safeSend(client, message, brokerKey);
               console.log(`${brokerKey} Success ${index}`);
             } else {
-              const message = TYPE.data.broker === response
-                ? MESS_SERVER(process.env.TYPE_GET_INDEX, true, `No data found for index ${index}`)
-                : MESS_SERVER(process.env.TYPE_GET_INDEX, false, response);
+              const message =
+                TYPE.data.broker === response
+                  ? MESS_SERVER(
+                      process.env.TYPE_GET_INDEX,
+                      true,
+                      `No data found for index ${index}`
+                    )
+                  : MESS_SERVER(
+                      process.env.TYPE_GET_INDEX,
+                      false,
+                      response
+                    );
               safeSend(client, message, brokerKey);
             }
             break;
@@ -348,7 +387,11 @@ export class SimpleGateway {
           // ==================================================================
           case process.env.TYPE_SET_DATA: {
             if (!TYPE.data?.broker_) {
-              safeSend(client, 'ERROR: Missing broker_ parameter', brokerKey);
+              safeSend(
+                client,
+                'ERROR: Missing broker_ parameter',
+                brokerKey
+              );
               break;
             }
 
@@ -366,22 +409,40 @@ export class SimpleGateway {
           // ==================================================================
           case process.env.TYPE_RESET_DATA: {
             if (!TYPE.data?.symbol || !TYPE.data?.broker) {
-              safeSend(client, 'ERROR: Missing symbol or broker parameter', brokerKey);
+              safeSend(
+                client,
+                'ERROR: Missing symbol or broker parameter',
+                brokerKey
+              );
               break;
             }
 
             try {
               const Info = await getPriceSymbol(TYPE.data.symbol);
-              
-              await updateBrokerStatus(`${formatString(TYPE.data.broker)}`,`[${TYPE.data.Payload?.mess || 'N/A'}] - ${truncateString(TYPE.data.symbol)}`);
 
-              let responseData : any;
-              let logColor : any;
+              await updateBrokerStatus(
+                `${formatString(TYPE.data.broker)}`,
+                `[${TYPE.data.Payload?.mess || 'N/A'}] - ${truncateString(
+                  TYPE.data.symbol
+                )}`
+              );
+
+              let responseData: any;
+              let logColor: any;
+
+              // Chuẩn hóa Index từ request
+              const rawIndex = TYPE.data.index;
+              const parsedIndex =
+                rawIndex === undefined || rawIndex === null
+                  ? null
+                  : Number(rawIndex);
+              const hasValidIndex =
+                parsedIndex !== null && Number.isFinite(parsedIndex);
 
               if (Info) {
                 responseData = {
                   ...Info,
-                  Index: TYPE.data.index,
+                  Index: hasValidIndex ? parsedIndex : null,
                   Type: TYPE.type
                 };
                 logColor = colors.green;
@@ -392,7 +453,7 @@ export class SimpleGateway {
                   Bid: 'null',
                   Digit: 'null',
                   Time: 'null',
-                  Index: TYPE.data.index,
+                  Index: hasValidIndex ? parsedIndex : null,
                   Type: TYPE.type
                 };
                 logColor = colors.yellow;
@@ -402,14 +463,15 @@ export class SimpleGateway {
                 logColor,
                 `${process.env.TYPE_RESET_DATA}`,
                 colors.reset,
-                `Broker ${TYPE.data.broker} -> Symbol: ${TYPE.data.symbol} - [${TYPE.data.Payload?.mess || 'N/A'}] <=> Broker Check: ${responseData.Broker}`
+                `Broker ${TYPE.data.broker} -> Symbol: ${
+                  TYPE.data.symbol
+                } - [${TYPE.data.Payload?.mess || 'N/A'}] <=> Broker Check: ${
+                  responseData.Broker
+                }`
               );
-              if(responseData.Index !== 'N/A' || responseData.Index !== null || responseData.Index !== 0){
-                 safeSend(client, JSON.stringify(responseData), brokerKey);
-              }else{
-                safeSend(client, 'ERROR: Invalid Index value', brokerKey);
-              }
-             
+
+              // Gửi luôn response (nếu bạn muốn check chặt hơn có thể thêm điều kiện)
+              safeSend(client, JSON.stringify(responseData), brokerKey);
             } catch (error) {
               console.error('Error in RESET_DATA:', error);
               safeSend(client, 'ERROR: Failed to process reset', brokerKey);
@@ -423,13 +485,28 @@ export class SimpleGateway {
           default: {
             const errorMessage = `ERROR: Unknown message type: ${TYPE.type}`;
             safeSend(client, errorMessage, brokerKey);
-            log(colors.yellow, `${process.env.ICON_WARNING_LOG} Unknown message type:`, TYPE.type, 'from', brokerKey);
+            log(
+              colors.yellow,
+              `${process.env.ICON_WARNING_LOG} Unknown message type:`,
+              TYPE.type,
+              'from',
+              brokerKey
+            );
             break;
           }
         }
-      } catch (error) {
-        console.error(`${process.env.ICON_WARNING_LOG} Message handling error for ${brokerKey}:`, error);
-        safeSend(client, `ERROR: ${error instanceof Error ? error.message : 'Internal server error'}`, brokerKey);
+      } catch (error: any) {
+        console.error(
+          `${process.env.ICON_WARNING_LOG} Message handling error for ${brokerKey}:`,
+          error
+        );
+        safeSend(
+          client,
+          `ERROR: ${
+            error instanceof Error ? error.message : 'Internal server error'
+          }`,
+          brokerKey
+        );
       }
     });
 
@@ -437,11 +514,16 @@ export class SimpleGateway {
     // 5. XỬ LÝ ĐÓNG KẾT NỐI
     // ========================================================================
     client.on('close', async (code, reason) => {
+      // Xoá khỏi DATA_SET trước, rồi log size hiện tại
+      DATA_SET.delete(brokerKey);
+
       log(
         colors.red,
         `${process.env.ICON_DISCONNECT_LOG} DISCONNECTION`,
         colors.cyan,
-        ` ${brokerKey} | Code: ${code} | Reason: ${reason || 'N/A'} | PID=${process.pid} | Remaining: ${DATA_SET.size - 1}`
+        ` ${brokerKey} | Code: ${code} | Reason: ${
+          reason || 'N/A'
+        } | PID=${process.pid} | Remaining: ${DATA_SET.size}`
       );
 
       try {
@@ -449,8 +531,6 @@ export class SimpleGateway {
       } catch (error) {
         console.error(`Error clearing broker ${brokerKey}:`, error);
       }
-
-      DATA_SET.delete(brokerKey);
     });
 
     // ========================================================================
@@ -466,17 +546,17 @@ export class SimpleGateway {
         name: err.name
       });
 
-      // Cleanup connection khi có lỗi
+      // Chỉ đóng socket, không xóa DATA_SET ở đây (đã xử lý trong 'close')
       try {
-        if (client.readyState !== WebSocket.CLOSED) {
+        if (
+          client.readyState !== WebSocket.CLOSED &&
+          client.readyState !== WebSocket.CLOSING
+        ) {
           client.close(1011, 'Internal error');
         }
       } catch (e) {
         console.error('Error closing client on error:', e);
       }
-
-      // Xóa khỏi DATA_SET
-      DATA_SET.delete(brokerKey);
     });
   }
 }
