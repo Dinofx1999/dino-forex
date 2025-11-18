@@ -151,8 +151,6 @@ const DATA_SET = new Map<string, BrokerConnection>();
               }
             }
           });
-
-          console.log(`📊 Broadcast result: Success=${successCount}, Failed=${failCount}`);
         } else {
           console.log(`No active connection for Broker: ${data.broker}`);
         }
@@ -201,8 +199,6 @@ const DATA_SET = new Map<string, BrokerConnection>();
             }
           }
         });
-
-        console.log(`📊 Broadcast result: Success=${successCount}, Failed=${failCount}`);
       } catch (error) {
         console.error('Error in RESET_ALL_SYMBOLS subscription:', error);
       }
