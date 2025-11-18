@@ -79,12 +79,12 @@ export class SimpleGateway_WEB_Analysis implements OnModuleInit, OnModuleDestroy
 
     // 👇 KHI CLIENT ĐÓNG KẾT NỐI - KILL INTERVAL
     client.on('close', () => {
-      log(
-        colors.red,
-        `${process.env.ICON_DISCONNECT_LOG} DISCONNECTION`,
-        colors.cyan,
-        `${clientId} | Client ID: ${clientId}`
-      );
+      // log(
+      //   colors.red,
+      //   `${process.env.ICON_DISCONNECT_LOG} DISCONNECTION`,
+      //   colors.cyan,
+      //   `${clientId} | Client ID: ${clientId}`
+      // );
 
       // ✅ KILL INTERVAL CỦA CLIENT NÀY
     //   this.stopJob(clientId);

@@ -318,9 +318,10 @@ export class SimpleGateway {
     // Metrics logging
     setInterval(() => {
       const uptime = Math.floor((Date.now() - metrics.startTime) / 1000);
-      log(
-        colors.blue,
-        `📊 Metrics: Active=${DATA_SET.size}, Total=${metrics.totalConnections}, Messages=${metrics.totalMessages}, Errors=${metrics.totalErrors}, Uptime=${uptime}s`
+      console.log(
+        `[📊 Metrics] ${getTimeGMT7()} PID=${process.pid} PORT=${process.env.PORT} | ` +
+        `Active=${DATA_SET.size}, Total=${metrics.totalConnections}, ` +
+        `Messages=${metrics.totalMessages}, Errors=${metrics.totalErrors}, Uptime=${uptime}s`
       );
     }, METRICS_LOG_INTERVAL);
 
